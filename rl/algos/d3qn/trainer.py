@@ -240,6 +240,7 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
     seed_everything(config.run.seed)
     device = _resolve_device(config.run.device)
     run_logger = setup_run_logger("train", run_paths.run_dir)
+    run_logger.info("Logging dir: %s", run_paths.run_dir)
 
     df = _prepare_data(config)
     train_df, _ = sample_train_test_split(

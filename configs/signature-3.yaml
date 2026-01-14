@@ -17,7 +17,7 @@ env:
       backend: pysiglib
       embedding: price_return
       logsig:
-        degree: 2
+        degree: 3
         method: 1
         time_aug: true
         lead_lag: false

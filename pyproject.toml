@@ -2,7 +2,7 @@
 name = "base-d3qn"
 version = "0.1.0"
 description = "D3QN trading with signature"
-requires-python = ">=3.11"
+requires-python = "==3.12"
 dependencies = [
     "matplotlib>=3.10.8",
     "numpy>=2.4.1",

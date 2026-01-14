@@ -267,7 +267,7 @@ def main() -> None:
     summary_path.write_text(json.dumps(summary, indent=2))
 
     logger.info(
-        "Average return over %s episodes: %.2f",
+        "Evaluation average return over %s episodes: %.2f",
         eval_cfg.num_episodes,
         mean_return,
     )
