@@ -1,0 +1,40 @@
+data:
+  path: data/Bitcoin History 2010-2024.csv
+  start_date: "2014-01-01"
+  end_date: "2020-12-31"
+  price_column: Price
+  close_column: Close
+  date_column: Date
+
+env:
+  reward: profit
+  window_size: 24
+  trading_period: 500
+  train_split: 0.8
+
+agent:
+  replay_mem_size: 10000
+  batch_size: 40
+  gamma: 0.99
+  eps_start: 1.0
+  eps_end: 0.02
+  eps_steps: 200
+  learning_rate: 0.0005
+  input_dim: 24
+  hidden_dim: 120
+  action_number: 3
+  target_update: 5
+  model: ddqn
+  double: true
+
+train:
+  num_episodes: 100
+  max_steps_per_episode:
+  max_total_steps:
+  log_interval: 10
+  checkpoint_interval: 5
+  eval_epsilon: 0.0
+
+run:
+  seed: 42
+  device: auto

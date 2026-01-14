@@ -1,0 +1,70 @@
+from __future__ import annotations
+
+import csv
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Dict, Iterable, Optional
+
+
+@dataclass
+class LogPaths:
+    run_dir: Path
+    metrics_csv: Path
+    tensorboard_dir: Path
+
+
+class CSVLogger:
+    def __init__(self, path: Path, fieldnames: Iterable[str]) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        self._path = path
+        self._file = path.open("w", newline="")
+        self._writer = csv.DictWriter(self._file, fieldnames=list(fieldnames))
+        self._writer.writeheader()
+
+    def log(self, row: Dict[str, object]) -> None:
+        self._writer.writerow(row)
+        self._file.flush()
+
+    def close(self) -> None:
+        self._file.close()
+
+
+class TensorBoardLogger:
+    def __init__(self, log_dir: Path) -> None:
+        self._writer = None
+        try:
+            from torch.utils.tensorboard import SummaryWriter  # type: ignore
+
+            log_dir.mkdir(parents=True, exist_ok=True)
+            self._writer = SummaryWriter(log_dir=str(log_dir))
+        except Exception:
+            self._writer = None
+
+    @property
+    def enabled(self) -> bool:
+        return self._writer is not None
+
+    def log(self, metrics: Dict[str, float], step: int) -> None:
+        if not self._writer:
+            return
+        for key, value in metrics.items():
+            self._writer.add_scalar(key, value, step)
+
+    def close(self) -> None:
+        if self._writer:
+            self._writer.close()
+
+
+class MetricsLogger:
+    def __init__(self, paths: LogPaths, fieldnames: Iterable[str]) -> None:
+        self.csv_logger = CSVLogger(paths.metrics_csv, fieldnames)
+        self.tb_logger = TensorBoardLogger(paths.tensorboard_dir)
+
+    def log(self, row: Dict[str, object], step: int) -> None:
+        self.csv_logger.log(row)
+        float_metrics = {k: float(v) for k, v in row.items() if isinstance(v, (int, float))}
+        self.tb_logger.log(float_metrics, step)
+
+    def close(self) -> None:
+        self.csv_logger.close()
+        self.tb_logger.close()
