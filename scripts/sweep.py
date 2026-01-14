@@ -14,6 +14,7 @@ import yaml
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT))
 
+from rl.utils.logging import setup_run_logger
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Hyperparameter sweep runner")
@@ -73,6 +74,7 @@ def run_sweep() -> None:
     run_prefix = args.run_prefix or sweep_cfg.get("run_prefix", "d3qn_sweep")
     max_parallel = args.max_parallel or sweep_cfg.get("max_parallel", 1)
     gpu_id = args.gpu_id or str(sweep_cfg.get("gpu_id", 0))
+    logger = setup_run_logger("sweep", Path(output_dir))
 
     overrides = sweep_cfg.get("overrides", {})
     grid = build_override_grid(overrides)
@@ -80,7 +82,7 @@ def run_sweep() -> None:
         grid = grid[: args.max_runs]
 
     if not grid:
-        print("No sweep runs configured.")
+        logger.warning("No sweep runs configured.")
         return
 
     env = os.environ.copy()
@@ -94,7 +96,7 @@ def run_sweep() -> None:
         run_name = f"{run_prefix}_{idx:03d}"
         cmd = build_command(base_config, output_dir, run_name, override_set)
         if args.dry_run:
-            print("DRY RUN:", " ".join(cmd))
+            logger.info("DRY RUN: %s", " ".join(cmd))
             continue
 
         while len(running) >= max_parallel:
@@ -104,7 +106,7 @@ def run_sweep() -> None:
                     completed += 1
             time.sleep(0.2)
 
-        print(f"Starting {completed + len(running) + 1}/{total}: {run_name}")
+        logger.info("Starting %s/%s: %s", completed + len(running) + 1, total, run_name)
         proc = subprocess.Popen(cmd, env=env)
         running.append(proc)
 
@@ -115,7 +117,7 @@ def run_sweep() -> None:
                 completed += 1
         time.sleep(0.2)
 
-    print(f"Sweep finished: {completed}/{total} runs completed")
+    logger.info("Sweep finished: %s/%s runs completed", completed, total)
 
 
 if __name__ == "__main__":

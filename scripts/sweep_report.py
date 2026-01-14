@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 import argparse
+import sys
 from pathlib import Path
 from typing import Dict, List
 
 import pandas as pd
 import yaml
 
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.append(str(ROOT))
+
+from rl.utils.logging import setup_run_logger
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Summarize sweep runs")
@@ -70,6 +75,7 @@ def summarize_run(run_dir: Path, last_n: int) -> Dict[str, object]:
 def main() -> None:
     args = parse_args()
     runs_dir = Path(args.runs_dir)
+    logger = setup_run_logger("sweep_report", runs_dir)
 
     rows: List[Dict[str, object]] = []
     for run_dir in sorted(runs_dir.iterdir() if runs_dir.exists() else []):
@@ -80,7 +86,7 @@ def main() -> None:
             rows.append(summary)
 
     if not rows:
-        print("No runs found.")
+        logger.info("No runs found.")
         return
 
     df = pd.DataFrame(rows)
@@ -104,16 +110,16 @@ def main() -> None:
 
     duplicates = {key: names for key, names in seen.items() if len(names) > 1}
     if duplicates:
-        print("Warning: duplicate sweep configs detected.")
+        logger.warning("Duplicate sweep configs detected.")
         for key, names in duplicates.items():
             details = ", ".join(f"{field}={value}" for field, value in zip(key_fields, key))
-            print(f"- {', '.join(names)} | {details}")
+            logger.warning("- %s | %s", ", ".join(names), details)
 
     if args.output_csv:
         Path(args.output_csv).parent.mkdir(parents=True, exist_ok=True)
         df.to_csv(args.output_csv, index=False)
 
-    print(df.to_string(index=False))
+    logger.info("\n%s", df.to_string(index=False))
 
 
 if __name__ == "__main__":

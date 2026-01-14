@@ -17,6 +17,7 @@ sys.path.append(str(ROOT))
 from rl.algos.d3qn.trainer import Config, build_agent, config_from_dict, load_config
 from rl.envs.make_env import filter_date_range, load_price_data, make_env
 from rl.utils.checkpoint import load_checkpoint
+from rl.utils.logging import setup_run_logger
 
 
 def parse_args() -> argparse.Namespace:
@@ -92,6 +93,8 @@ def _sample_start_indices(
 def main() -> None:
     args = parse_args()
     checkpoint_path = Path(args.checkpoint)
+    run_dir = _resolve_run_dir(checkpoint_path)
+    logger = setup_run_logger("eval", run_dir)
 
     device_override = args.device or "auto"
     checkpoint = load_checkpoint(checkpoint_path, device=device_override)
@@ -136,7 +139,7 @@ def main() -> None:
         available = max_start - min_start + 1
         replace = available < eval_cfg.num_episodes
         if replace:
-            print("Warning: not enough unique start windows; sampling with replacement.")
+            logger.warning("Not enough unique start windows; sampling with replacement.")
         start_indices = _sample_start_indices(
             rng,
             min_start,
@@ -208,7 +211,6 @@ def main() -> None:
         for row in episode_rows:
             row.setdefault("start_timestamp", "")
 
-    run_dir = _resolve_run_dir(checkpoint_path)
     run_dir.mkdir(parents=True, exist_ok=True)
 
     if eval_cfg.save_per_episode:
@@ -264,7 +266,11 @@ def main() -> None:
     summary_path = run_dir / "eval_summary.json"
     summary_path.write_text(json.dumps(summary, indent=2))
 
-    print(f"Average return over {eval_cfg.num_episodes} episodes: {mean_return:.2f}")
+    logger.info(
+        "Average return over %s episodes: %.2f",
+        eval_cfg.num_episodes,
+        mean_return,
+    )
 
 
 if __name__ == "__main__":

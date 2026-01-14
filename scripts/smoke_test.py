@@ -7,6 +7,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT))
 
 from rl.algos.d3qn.trainer import evaluate, load_config, train
+from rl.utils.logging import setup_run_logger
 from rl.utils.path import build_run_name, build_run_paths
 
 
@@ -22,6 +23,7 @@ def _run_smoke(config_path: str, run_prefix: str) -> None:
     run_name = build_run_name(run_prefix)
     run_paths = build_run_paths(Path("runs"), run_name)
     run_paths.run_dir.mkdir(parents=True, exist_ok=True)
+    logger = setup_run_logger("smoke_test", run_paths.run_dir)
 
     train(config, run_paths)
 
@@ -33,7 +35,7 @@ def _run_smoke(config_path: str, run_prefix: str) -> None:
         epsilon=config.train.eval_epsilon,
         device=config.run.device,
     )
-    print(f"{run_prefix} completed. Mean return: {mean_return:.2f}")
+    logger.info("%s completed. Mean return: %.2f", run_prefix, mean_return)
 
 
 def main() -> None:

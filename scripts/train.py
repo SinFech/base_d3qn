@@ -101,7 +101,6 @@ def main() -> None:
     save_config(config, run_paths.config_resolved)
 
     train(config, run_paths)
-    print(f"Run artifacts saved to {run_paths.run_dir}")
 
 
 if __name__ == "__main__":

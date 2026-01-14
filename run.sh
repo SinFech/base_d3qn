@@ -12,7 +12,7 @@ Runs training and then evaluation.
 
 Arguments:
   config     Path to config YAML (default: configs/baseline.yaml)
-  run_name   Base run name (default: run_YYYYmmdd_HHMMSS)
+  run_name   Base run name (default: config filename without extension)
   output_dir Output directory (default: runs)
 
 For full training options:
@@ -27,10 +27,21 @@ if [[ ! -x "$PYTHON" ]]; then
 fi
 
 CONFIG="${1:-configs/baseline.yaml}"
-RUN_NAME="${2:-run_$(date +%Y%m%d_%H%M%S)}"
+CONFIG_BASENAME="$(basename "$CONFIG")"
+CONFIG_STEM="${CONFIG_BASENAME%.*}"
+RUN_NAME="${2:-$CONFIG_STEM}"
 OUTPUT_DIR="${3:-runs}"
 
 "$PYTHON" scripts/train.py --config "$CONFIG" --run-name "$RUN_NAME" --output-dir "$OUTPUT_DIR"
 
-CHECKPOINT="$OUTPUT_DIR/$RUN_NAME/checkpoints/checkpoint_latest.pt"
+RUN_DIR="$OUTPUT_DIR/$RUN_NAME"
+if [[ ! -d "$RUN_DIR" ]]; then
+  RUN_DIR="$(ls -dt "$OUTPUT_DIR"/"$RUN_NAME"_* 2>/dev/null | head -n 1 || true)"
+fi
+if [[ -z "$RUN_DIR" ]]; then
+  echo "Run directory not found for $RUN_NAME in $OUTPUT_DIR." >&2
+  exit 1
+fi
+
+CHECKPOINT="$RUN_DIR/checkpoints/checkpoint_latest.pt"
 "$PYTHON" scripts/eval.py --checkpoint "$CHECKPOINT" --config "$CONFIG"

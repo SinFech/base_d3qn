@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 import csv
+import logging
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, Iterable, Optional
+
+
+LOG_FORMAT = "%(asctime)s | %(levelname)s | %(message)s"
+LOG_DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
 
 
 @dataclass
@@ -11,6 +17,37 @@ class LogPaths:
     run_dir: Path
     metrics_csv: Path
     tensorboard_dir: Path
+
+
+def setup_run_logger(
+    name: str,
+    run_dir: Optional[Path] = None,
+    log_filename: str = "run.log",
+    level: int = logging.INFO,
+) -> logging.Logger:
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    logger.propagate = False
+
+    for handler in list(logger.handlers):
+        logger.removeHandler(handler)
+        handler.close()
+
+    formatter = logging.Formatter(LOG_FORMAT, datefmt=LOG_DATE_FORMAT)
+    stream_handler = logging.StreamHandler(sys.stdout)
+    stream_handler.setLevel(level)
+    stream_handler.setFormatter(formatter)
+    logger.addHandler(stream_handler)
+
+    if run_dir is not None:
+        run_dir.mkdir(parents=True, exist_ok=True)
+        log_path = run_dir / log_filename
+        file_handler = logging.FileHandler(log_path, mode="a", encoding="utf-8")
+        file_handler.setLevel(level)
+        file_handler.setFormatter(formatter)
+        logger.addHandler(file_handler)
+
+    return logger
 
 
 class CSVLogger:

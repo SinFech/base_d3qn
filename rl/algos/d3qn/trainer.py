@@ -11,7 +11,7 @@ import yaml
 from rl.algos.d3qn.agent import D3QNAgent
 from rl.envs.make_env import filter_date_range, load_price_data, make_env, sample_train_test_split
 from rl.utils.checkpoint import load_checkpoint, save_checkpoint
-from rl.utils.logging import LogPaths, MetricsLogger
+from rl.utils.logging import LogPaths, MetricsLogger, setup_run_logger
 from rl.utils.path import RunPaths
 from rl.utils.seed import seed_everything
 
@@ -239,6 +239,7 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
 
     seed_everything(config.run.seed)
     device = _resolve_device(config.run.device)
+    run_logger = setup_run_logger("train", run_paths.run_dir)
 
     df = _prepare_data(config)
     train_df, _ = sample_train_test_split(
@@ -262,7 +263,7 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
         metrics_csv=run_paths.metrics_csv,
         tensorboard_dir=run_paths.tensorboard_dir,
     )
-    logger = MetricsLogger(
+    metrics_logger = MetricsLogger(
         log_paths,
         fieldnames=[
             "episode",
@@ -328,15 +329,17 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
             "avg_loss": avg_loss,
             "avg_q": avg_q,
         }
-        logger.log(row, step=episode)
+        metrics_logger.log(row, step=episode)
 
         if (episode + 1) % config.train.log_interval == 0:
-            print(
-                f"Episode {episode + 1}/{config.train.num_episodes} | "
-                f"return {episode_return:.2f} | "
-                f"epsilon {agent.last_epsilon:.3f} | "
-                f"avg_loss {avg_loss:.4f} | "
-                f"avg_q {avg_q:.4f}"
+            run_logger.info(
+                "Episode %s/%s | return %.2f | epsilon %.3f | avg_loss %.4f | avg_q %.4f",
+                episode + 1,
+                config.train.num_episodes,
+                episode_return,
+                agent.last_epsilon,
+                avg_loss,
+                avg_q,
             )
 
         if (episode + 1) % config.train.checkpoint_interval == 0:
@@ -364,7 +367,8 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
         episode=config.train.num_episodes,
         step=total_steps,
     )
-    logger.close()
+    metrics_logger.close()
+    run_logger.info("Run artifacts saved to %s", run_paths.run_dir)
     return run_paths
 
 
