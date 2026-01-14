@@ -6,9 +6,9 @@ with simple script entrypoints in `scripts/` and notebooks under `notebooks/`.
 ## Quickstart
 
 ```bash
-python -m venv .venv
+uv venv .venv
 source .venv/bin/activate
-pip install -r requirements.txt
+uv sync
 ```
 
 ## Train
@@ -41,6 +41,11 @@ python scripts/smoke_test.py
 - Use `--seed`, `--num-episodes`, `--total-steps`, and other CLI overrides to
   create variations without editing code.
 - Each run writes a resolved config snapshot next to the logs.
+
+## Signature observations (logsignature)
+
+Install `pysiglib`, then set `env.obs.type: signature` and `model.type: mlp_dueling`
+in your config (see `configs/signature_smoke.yaml` for a minimal example).
 
 ## Notebooks
 

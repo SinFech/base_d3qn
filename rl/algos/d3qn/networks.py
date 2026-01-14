@@ -3,6 +3,17 @@ from __future__ import annotations
 from torch import nn
 
 
+def _build_mlp_layers(input_dim: int, hidden_sizes: list[int], output_dim: int) -> nn.Sequential:
+    layers = []
+    current_dim = input_dim
+    for size in hidden_sizes:
+        layers.append(nn.Linear(current_dim, size))
+        layers.append(nn.LeakyReLU())
+        current_dim = size
+    layers.append(nn.Linear(current_dim, output_dim))
+    return nn.Sequential(*layers)
+
+
 class DQN(nn.Module):
     def __init__(self, obs_len: int, hidden_size: int, actions_n: int) -> None:
         super().__init__()
@@ -103,9 +114,53 @@ class ConvDuelingDQN(nn.Module):
         return qvals
 
 
-def build_q_network(model: str, input_dim: int, action_number: int):
-    if model == "ddqn":
+class MLPDQN(nn.Module):
+    def __init__(self, obs_dim: int, actions_n: int, hidden_sizes: list[int]) -> None:
+        super().__init__()
+        self.net = _build_mlp_layers(obs_dim, hidden_sizes, actions_n)
+
+    def forward(self, x):
+        x = x.view(x.size(0), -1)
+        return self.net(x)
+
+
+class MLPDuelingDQN(nn.Module):
+    def __init__(self, obs_dim: int, actions_n: int, hidden_sizes: list[int]) -> None:
+        super().__init__()
+        self.feature_layer = _build_mlp_layers(obs_dim, hidden_sizes, hidden_sizes[-1])
+        self.value_stream = nn.Sequential(
+            nn.Linear(hidden_sizes[-1], hidden_sizes[-1]),
+            nn.LeakyReLU(),
+            nn.Linear(hidden_sizes[-1], 1),
+        )
+        self.advantage_stream = nn.Sequential(
+            nn.Linear(hidden_sizes[-1], hidden_sizes[-1]),
+            nn.LeakyReLU(),
+            nn.Linear(hidden_sizes[-1], actions_n),
+        )
+
+    def forward(self, x):
+        x = x.view(x.size(0), -1)
+        features = self.feature_layer(x)
+        values = self.value_stream(features)
+        advantages = self.advantage_stream(features)
+        qvals = values + (advantages - advantages.mean())
+        return qvals
+
+
+def build_q_network(
+    model: str,
+    input_dim: int,
+    action_number: int,
+    hidden_sizes: list[int] | None = None,
+):
+    hidden_sizes = hidden_sizes or [256, 256]
+    if model in {"ddqn", "conv_dueling"}:
         return ConvDuelingDQN(input_dim, action_number)
-    if model == "dqn":
+    if model in {"dqn", "conv"}:
         return ConvDQN(input_dim, action_number)
+    if model == "mlp":
+        return MLPDQN(input_dim, action_number, hidden_sizes)
+    if model == "mlp_dueling":
+        return MLPDuelingDQN(input_dim, action_number, hidden_sizes)
     raise ValueError(f"Unsupported model type: {model}")

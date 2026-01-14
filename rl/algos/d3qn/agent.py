@@ -3,6 +3,7 @@ from __future__ import annotations
 import random
 from typing import Optional, Tuple
 
+import numpy as np
 import torch
 import torch.optim as optim
 
@@ -24,6 +25,7 @@ class D3QNAgent:
         learning_rate: float = 0.0005,
         input_dim: int = 24,
         hidden_dim: int = 120,
+        hidden_sizes: Optional[list[int]] = None,
         action_number: int = 3,
         target_update: int = 5,
         model: str = "ddqn",
@@ -39,6 +41,7 @@ class D3QNAgent:
         self.learning_rate = learning_rate
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
+        self.hidden_sizes = hidden_sizes or [hidden_dim, hidden_dim]
         self.action_number = action_number
         self.target_update = target_update
         self.model = model
@@ -51,8 +54,18 @@ class D3QNAgent:
             else torch.device(device)
         )
 
-        self.policy_net = build_q_network(self.model, self.input_dim, self.action_number).to(self.device)
-        self.target_net = build_q_network(self.model, self.input_dim, self.action_number).to(self.device)
+        self.policy_net = build_q_network(
+            self.model,
+            self.input_dim,
+            self.action_number,
+            hidden_sizes=self.hidden_sizes,
+        ).to(self.device)
+        self.target_net = build_q_network(
+            self.model,
+            self.input_dim,
+            self.action_number,
+            hidden_sizes=self.hidden_sizes,
+        ).to(self.device)
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.target_net.eval()
 
@@ -61,6 +74,13 @@ class D3QNAgent:
         self.epsilon_schedule = EpsilonSchedule(self.eps_start, self.eps_end, self.eps_steps)
         self.steps_done = 0
         self.last_epsilon = self.eps_start
+
+    def _as_tensor(self, value: Optional[torch.Tensor | np.ndarray]) -> Optional[torch.Tensor]:
+        if value is None:
+            return None
+        if isinstance(value, torch.Tensor):
+            return value.to(device=self.device, dtype=torch.float32)
+        return torch.as_tensor(value, device=self.device, dtype=torch.float32)
 
     def reset_episode(self) -> None:
         self.steps_done = 0
@@ -71,7 +91,13 @@ class D3QNAgent:
         training: bool = True,
         epsilon_override: Optional[float] = None,
     ) -> torch.Tensor:
-        state = state.unsqueeze(0).unsqueeze(1)
+        state = self._as_tensor(state)
+        if state is None:
+            raise ValueError("State must not be None when selecting an action.")
+        if state.dim() == 1:
+            state = state.unsqueeze(0)
+        if state.dim() == 2:
+            state = state.unsqueeze(1)
         sample = random.random()
         if epsilon_override is not None:
             eps_threshold = epsilon_override
@@ -86,7 +112,12 @@ class D3QNAgent:
         return torch.tensor([random.randrange(self.action_number)], device=self.device, dtype=torch.long)
 
     def store_transition(self, state, action, next_state, reward) -> None:
-        self.memory.push(state, action, next_state, reward)
+        self.memory.push(
+            self._as_tensor(state),
+            action,
+            self._as_tensor(next_state),
+            self._as_tensor(reward),
+        )
 
     def update_target(self) -> None:
         self.target_net.load_state_dict(self.policy_net.state_dict())

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import secrets
 import sys
 from pathlib import Path
 
@@ -90,7 +91,11 @@ def main() -> None:
     config = apply_overrides(config, args)
     config = apply_kv_overrides(config, args.override)
 
-    run_name = args.run_name or build_run_name(None)
+    if args.run_name is None:
+        run_name = build_run_name(None)
+    else:
+        suffix = secrets.token_hex(3)
+        run_name = f"{args.run_name}_{suffix}"
     run_paths = build_run_paths(Path(args.output_dir), run_name)
     run_paths.run_dir.mkdir(parents=True, exist_ok=True)
     save_config(config, run_paths.config_resolved)

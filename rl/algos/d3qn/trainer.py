@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
@@ -32,6 +32,44 @@ class EnvConfig:
     window_size: int = 24
     trading_period: int = 500
     train_split: float = 0.8
+    obs: "ObsConfig" = field(default_factory=lambda: ObsConfig())
+
+
+@dataclass
+class LogSigConfig:
+    degree: int = 2
+    method: int = 1
+    time_aug: bool = True
+    lead_lag: bool = False
+    end_time: float = 1.0
+
+
+@dataclass
+class SignatureTorchConfig:
+    device: str = "cpu"
+    dtype: str = "float32"
+
+
+@dataclass
+class SignaturePerfConfig:
+    n_jobs: int = -1
+    use_disk_prepare_cache: bool = True
+    prepare_cache_dir: str = "data/pysiglib_prepare_cache"
+
+
+@dataclass
+class SignatureObsConfig:
+    backend: str = "pysiglib"
+    embedding: str = "price_return"
+    logsig: LogSigConfig = field(default_factory=LogSigConfig)
+    torch: SignatureTorchConfig = field(default_factory=SignatureTorchConfig)
+    perf: SignaturePerfConfig = field(default_factory=SignaturePerfConfig)
+
+
+@dataclass
+class ObsConfig:
+    type: str = "raw"
+    signature: SignatureObsConfig = field(default_factory=SignatureObsConfig)
 
 
 @dataclass
@@ -78,6 +116,12 @@ class RunConfig:
 
 
 @dataclass
+class ModelConfig:
+    type: str = "conv_dueling"
+    hidden_sizes: list[int] = field(default_factory=lambda: [256, 256])
+
+
+@dataclass
 class Config:
     data: DataConfig
     env: EnvConfig
@@ -85,6 +129,7 @@ class Config:
     train: TrainConfig
     eval: EvalConfig
     run: RunConfig
+    model: ModelConfig
 
 
 def _resolve_device(device: str) -> str:
@@ -94,13 +139,39 @@ def _resolve_device(device: str) -> str:
 
 
 def config_from_dict(data: Dict) -> Config:
+    raw_env = data.get("env", {})
+    raw_obs = raw_env.get("obs", {})
+    raw_signature = raw_obs.get("signature", {}) or {}
+    raw_logsig = raw_signature.get("logsig", {}) or {}
+    raw_signature_torch = raw_signature.get("torch", {}) or {}
+    raw_signature_perf = raw_signature.get("perf", {}) or {}
+
+    signature_cfg = SignatureObsConfig(
+        backend=raw_signature.get("backend", "pysiglib"),
+        embedding=raw_signature.get("embedding", "price_return"),
+        logsig=LogSigConfig(**raw_logsig),
+        torch=SignatureTorchConfig(**raw_signature_torch),
+        perf=SignaturePerfConfig(**raw_signature_perf),
+    )
+    obs_cfg = ObsConfig(type=raw_obs.get("type", "raw"), signature=signature_cfg)
+
+    agent_cfg = AgentConfig(**data.get("agent", {}))
+    raw_model = data.get("model", {})
+    if raw_model:
+        model_cfg = ModelConfig(**raw_model)
+    else:
+        model_map = {"ddqn": "conv_dueling", "dqn": "conv"}
+        model_cfg = ModelConfig(type=model_map.get(agent_cfg.model, "conv_dueling"))
+
+    env_payload = {key: value for key, value in raw_env.items() if key != "obs"}
     return Config(
         data=DataConfig(**data.get("data", {})),
-        env=EnvConfig(**data.get("env", {})),
-        agent=AgentConfig(**data.get("agent", {})),
+        env=EnvConfig(**env_payload, obs=obs_cfg),
+        agent=agent_cfg,
         train=TrainConfig(**data.get("train", {})),
         eval=EvalConfig(**data.get("eval", {})),
         run=RunConfig(**data.get("run", {})),
+        model=model_cfg,
     )
 
 
@@ -119,7 +190,8 @@ def save_config(config: Config, path: Path) -> None:
     path.write_text(yaml.safe_dump(config_to_dict(config), sort_keys=False))
 
 
-def build_agent(config: Config, device: str) -> D3QNAgent:
+def build_agent(config: Config, device: str, input_dim: Optional[int] = None) -> D3QNAgent:
+    resolved_input_dim = input_dim if input_dim is not None else config.agent.input_dim
     return D3QNAgent(
         replay_mem_size=config.agent.replay_mem_size,
         batch_size=config.agent.batch_size,
@@ -128,11 +200,12 @@ def build_agent(config: Config, device: str) -> D3QNAgent:
         eps_end=config.agent.eps_end,
         eps_steps=config.agent.eps_steps,
         learning_rate=config.agent.learning_rate,
-        input_dim=config.agent.input_dim,
+        input_dim=resolved_input_dim,
         hidden_dim=config.agent.hidden_dim,
         action_number=config.agent.action_number,
         target_update=config.agent.target_update,
-        model=config.agent.model,
+        model=config.model.type,
+        hidden_sizes=config.model.hidden_sizes,
         double=config.agent.double,
         device=device,
     )
@@ -154,9 +227,15 @@ def _prepare_data(config: Config):
     return df
 
 
+def _resolve_obs_dim(env, config: Config) -> int:
+    obs_dim = getattr(env, "obs_dim", config.env.window_size)
+    if config.env.obs.type == "raw" and config.agent.input_dim != obs_dim:
+        raise ValueError("agent.input_dim must match env.window_size for raw observations")
+    config.agent.input_dim = obs_dim
+    return obs_dim
+
+
 def train(config: Config, run_paths: RunPaths) -> RunPaths:
-    if config.agent.input_dim != config.env.window_size:
-        raise ValueError("agent.input_dim must match env.window_size")
 
     seed_everything(config.run.seed)
     device = _resolve_device(config.run.device)
@@ -168,8 +247,15 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
         train_split=config.env.train_split,
     )
 
-    env = make_env(train_df, config.env.reward, config.env.window_size, device)
-    agent = build_agent(config, device)
+    env = make_env(
+        train_df,
+        config.env.reward,
+        config.env.window_size,
+        device,
+        obs_config=config.env.obs,
+    )
+    obs_dim = _resolve_obs_dim(env, config)
+    agent = build_agent(config, device, input_dim=obs_dim)
 
     log_paths = LogPaths(
         run_dir=run_paths.run_dir,
@@ -293,7 +379,16 @@ def evaluate(
     seed_everything(config.run.seed)
 
     df = _prepare_data(config)
-    agent = build_agent(config, device)
+    dim_env = make_env(
+        df,
+        config.env.reward,
+        config.env.window_size,
+        device,
+        trading_period=None,
+        obs_config=config.env.obs,
+    )
+    obs_dim = _resolve_obs_dim(dim_env, config)
+    agent = build_agent(config, device, input_dim=obs_dim)
 
     checkpoint = load_checkpoint(checkpoint_path, device=device)
     agent.policy_net.load_state_dict(checkpoint["policy_state"])
@@ -308,7 +403,14 @@ def evaluate(
             trading_period=config.env.trading_period,
             train_split=config.env.train_split,
         )
-        env = make_env(test_df, config.env.reward, config.env.window_size, device)
+        env = make_env(
+            test_df,
+            config.env.reward,
+            config.env.window_size,
+            device,
+            trading_period=None,
+            obs_config=config.env.obs,
+        )
         env.reset(start_index=env.window_size - 1)
         state = env.get_state()
         episode_return = 0.0

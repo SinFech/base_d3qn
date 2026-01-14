@@ -8,6 +8,14 @@ import pandas as pd
 from rl.envs.trading_env import TradingEnvironment
 
 
+def _get_cfg_value(config, key: str, default=None):
+    if config is None:
+        return default
+    if isinstance(config, dict):
+        return config.get(key, default)
+    return getattr(config, key, default)
+
+
 def load_price_data(
     path: Path,
     price_column: str = "Price",
@@ -62,11 +70,49 @@ def make_env(
     window_size: int,
     device: str,
     trading_period: Optional[int] = None,
+    obs_config=None,
 ) -> TradingEnvironment:
-    return TradingEnvironment(
+    env = TradingEnvironment(
         df,
         reward=reward,
         window_size=window_size,
         trading_period=trading_period,
         device=device,
     )
+    obs_type = _get_cfg_value(obs_config, "type", "raw")
+    if obs_type == "signature":
+        signature_cfg = _get_cfg_value(obs_config, "signature", {})
+        logsig_cfg = _get_cfg_value(signature_cfg, "logsig", {})
+        torch_cfg = _get_cfg_value(signature_cfg, "torch", {})
+        perf_cfg = _get_cfg_value(signature_cfg, "perf", {})
+
+        from rl.envs.wrappers import SignatureObsWrapper
+        from rl.features.signature import LogSigTransformer, PathBuilder
+
+        backend = _get_cfg_value(signature_cfg, "backend", "pysiglib")
+        if backend != "pysiglib":
+            raise ValueError(f"Unsupported signature backend: {backend}")
+        path_builder = PathBuilder(
+            embedding=_get_cfg_value(signature_cfg, "embedding", "price_return"),
+            device=_get_cfg_value(torch_cfg, "device", "cpu"),
+            dtype=_get_cfg_value(torch_cfg, "dtype", "float32"),
+        )
+        transformer = LogSigTransformer(
+            degree=_get_cfg_value(logsig_cfg, "degree", 2),
+            method=_get_cfg_value(logsig_cfg, "method", 1),
+            time_aug=_get_cfg_value(logsig_cfg, "time_aug", True),
+            lead_lag=_get_cfg_value(logsig_cfg, "lead_lag", False),
+            end_time=_get_cfg_value(logsig_cfg, "end_time", 1.0),
+            n_jobs=_get_cfg_value(perf_cfg, "n_jobs", -1),
+            device=_get_cfg_value(torch_cfg, "device", "cpu"),
+            dtype=_get_cfg_value(torch_cfg, "dtype", "float32"),
+            use_disk_prepare_cache=_get_cfg_value(perf_cfg, "use_disk_prepare_cache", True),
+            prepare_cache_dir=_get_cfg_value(perf_cfg, "prepare_cache_dir", "data/pysiglib_prepare_cache"),
+            base_dim=path_builder.base_dim,
+        )
+        env = SignatureObsWrapper(env, path_builder, transformer, add_position=False)
+    elif obs_type == "raw":
+        env.obs_dim = window_size
+    else:
+        raise ValueError(f"Unsupported obs.type: {obs_type}")
+    return env

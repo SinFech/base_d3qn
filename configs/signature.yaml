@@ -1,18 +1,18 @@
 data:
   path: data/Bitcoin History 2010-2024.csv
-  start_date: "2016-07-09"
-  end_date: "2018-01-09"
+  start_date: "2014-01-01"
+  end_date: "2020-12-31"
   price_column: Price
   close_column: Close
   date_column: Date
 
 env:
-  reward: profit
+  reward: sr
   window_size: 24
-  trading_period: 200
+  trading_period: 500
   train_split: 0.8
   obs:
-    type: raw
+    type: signature
     signature:
       backend: pysiglib
       embedding: price_return
@@ -23,7 +23,7 @@ env:
         lead_lag: false
         end_time: 1.0
       torch:
-        device: cpu
+        device: cuda
         dtype: float32
       perf:
         n_jobs: -1
@@ -37,7 +37,7 @@ agent:
   eps_start: 1.0
   eps_end: 0.02
   eps_steps: 200
-  learning_rate: 0.0005
+  learning_rate: 0.00025
   input_dim: 24
   hidden_dim: 120
   action_number: 3
@@ -46,11 +46,11 @@ agent:
   double: true
 
 model:
-  type: conv_dueling
+  type: mlp_dueling
   hidden_sizes: [256, 256]
 
 train:
-  num_episodes: 100
+  num_episodes: 50
   max_steps_per_episode:
   max_total_steps:
   log_interval: 10
@@ -66,5 +66,5 @@ eval:
   save_per_episode: true
 
 run:
-  seed: 42
-  device: auto
+  seed: 1
+  device: cuda

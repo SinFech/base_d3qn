@@ -160,8 +160,11 @@ def main() -> None:
         config.env.window_size,
         device,
         trading_period=config.env.trading_period,
+        obs_config=config.env.obs,
     )
-    agent = build_agent(config, device)
+    obs_dim = getattr(env, "obs_dim", config.env.window_size)
+    config.agent.input_dim = obs_dim
+    agent = build_agent(config, device, input_dim=obs_dim)
     agent.policy_net.load_state_dict(checkpoint["policy_state"])
     agent.target_net.load_state_dict(checkpoint["target_state"])
     agent.policy_net.eval()

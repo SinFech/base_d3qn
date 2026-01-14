@@ -1,13 +1,16 @@
 [project]
 name = "base-d3qn"
 version = "0.1.0"
-description = "D3QN trading baseline"
+description = "D3QN trading with signature"
 requires-python = ">=3.11"
 dependencies = [
     "matplotlib>=3.10.8",
     "numpy>=2.4.1",
     "pandas>=2.3.3",
     "prettytable>=3.17.0",
+    "pysiglib>=0.4.0",
+    "PyYAML>=6.0.2",
+    "tensorboard>=2.20.0",
     "torch>=2.9.1",
     "tqdm>=4.67.1",
 ]

@@ -38,26 +38,20 @@ The repository includes Python 3.10 bytecode artifacts, so Python **3.10+** is a
 
 ### Dependencies
 
-A baseline `requirements.txt` is provided. Install the libraries used by notebooks and
-the core `rl/` code.
-
-Minimum (observed in notebooks):
-- `pandas`
-- `prettytable`
-
-Commonly needed for RL experiments in this repo:
-- `numpy`
-- `matplotlib`
-
-Model/backbone dependencies:
-- Check `rl/algos/d3qn/networks.py` and `rl/algos/d3qn/agent.py` imports and install the required deep learning framework
-  (e.g., PyTorch or TensorFlow), plus any utilities they rely on.
+Dependencies are managed with `uv` via `pyproject.toml` and `uv.lock`. Use `uv` to
+add packages and refresh the lockfile.
 
 Suggested setup (example):
 ```bash
-python -m venv .venv
+uv venv .venv
 source .venv/bin/activate
-pip install -U pip
+uv sync
+```
 
-pip install -r requirements.txt
-# If you swap deep learning frameworks, update requirements accordingly.
+Default to using `.venv/bin/python` for running scripts in this repo.
+
+When adding dependencies:
+```bash
+uv add <package>
+uv lock
+```
