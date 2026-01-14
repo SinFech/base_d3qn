@@ -9,7 +9,7 @@ sys.path.append(str(ROOT))
 
 import yaml
 
-from rl.algos.d3qn.trainer import Config, load_config, train
+from rl.algos.d3qn.trainer import Config, load_config, save_config, train
 from rl.utils.path import build_run_name, build_run_paths
 
 
@@ -93,6 +93,7 @@ def main() -> None:
     run_name = args.run_name or build_run_name(None)
     run_paths = build_run_paths(Path(args.output_dir), run_name)
     run_paths.run_dir.mkdir(parents=True, exist_ok=True)
+    save_config(config, run_paths.config_resolved)
 
     train(config, run_paths)
     print(f"Run artifacts saved to {run_paths.run_dir}")

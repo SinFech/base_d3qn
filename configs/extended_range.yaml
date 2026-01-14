@@ -35,6 +35,14 @@ train:
   checkpoint_interval: 5
   eval_epsilon: 0.0
 
+eval:
+  num_episodes: 50
+  seed: 20240101
+  fixed_windows: true
+  fixed_windows_seed: 20240101
+  epsilon: 0.0
+  save_per_episode: true
+
 run:
   seed: 42
   device: auto

@@ -50,10 +50,19 @@ def summarize_run(run_dir: Path, last_n: int) -> Dict[str, object]:
         "best_return": best_return,
     }
 
-    summary["reward"] = config.get("env", {}).get("reward")
-    summary["learning_rate"] = config.get("agent", {}).get("learning_rate")
-    summary["eps_steps"] = config.get("agent", {}).get("eps_steps")
-    summary["num_episodes"] = config.get("train", {}).get("num_episodes")
+    env_cfg = config.get("env", {})
+    agent_cfg = config.get("agent", {})
+    train_cfg = config.get("train", {})
+    data_cfg = config.get("data", {})
+
+    summary["reward"] = env_cfg.get("reward")
+    summary["learning_rate"] = agent_cfg.get("learning_rate")
+    summary["eps_steps"] = agent_cfg.get("eps_steps")
+    summary["num_episodes"] = train_cfg.get("num_episodes")
+    summary["trading_period"] = env_cfg.get("trading_period")
+    summary["train_split"] = env_cfg.get("train_split")
+    summary["data_start_date"] = data_cfg.get("start_date")
+    summary["data_end_date"] = data_cfg.get("end_date")
 
     return summary
 
@@ -77,6 +86,28 @@ def main() -> None:
     df = pd.DataFrame(rows)
     if args.sort_by in df.columns:
         df = df.sort_values(by=args.sort_by, ascending=args.ascending)
+
+    key_fields = [
+        "reward",
+        "learning_rate",
+        "eps_steps",
+        "trading_period",
+        "train_split",
+        "data_start_date",
+        "data_end_date",
+    ]
+    seen: Dict[tuple, List[str]] = {}
+    for row in rows:
+        key = tuple(row.get(field) for field in key_fields)
+        if any(value is not None for value in key):
+            seen.setdefault(key, []).append(str(row.get("run_name")))
+
+    duplicates = {key: names for key, names in seen.items() if len(names) > 1}
+    if duplicates:
+        print("Warning: duplicate sweep configs detected.")
+        for key, names in duplicates.items():
+            details = ", ".join(f"{field}={value}" for field, value in zip(key_fields, key))
+            print(f"- {', '.join(names)} | {details}")
 
     if args.output_csv:
         Path(args.output_csv).parent.mkdir(parents=True, exist_ok=True)

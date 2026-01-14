@@ -62,6 +62,16 @@ class TrainConfig:
 
 
 @dataclass
+class EvalConfig:
+    num_episodes: int = 50
+    seed: int = 20240101
+    fixed_windows: bool = True
+    fixed_windows_seed: Optional[int] = None
+    epsilon: float = 0.0
+    save_per_episode: bool = True
+
+
+@dataclass
 class RunConfig:
     seed: int = 42
     device: str = "auto"
@@ -73,6 +83,7 @@ class Config:
     env: EnvConfig
     agent: AgentConfig
     train: TrainConfig
+    eval: EvalConfig
     run: RunConfig
 
 
@@ -88,6 +99,7 @@ def config_from_dict(data: Dict) -> Config:
         env=EnvConfig(**data.get("env", {})),
         agent=AgentConfig(**data.get("agent", {})),
         train=TrainConfig(**data.get("train", {})),
+        eval=EvalConfig(**data.get("eval", {})),
         run=RunConfig(**data.get("run", {})),
     )
 
@@ -181,7 +193,7 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
     total_steps = 0
     stop_training = False
     for episode in range(config.train.num_episodes):
-        env.reset()
+        env.reset(start_index=env.window_size - 1)
         agent.reset_episode()
         state = env.get_state()
         episode_return = 0.0
@@ -297,7 +309,7 @@ def evaluate(
             train_split=config.env.train_split,
         )
         env = make_env(test_df, config.env.reward, config.env.window_size, device)
-        env.reset()
+        env.reset(start_index=env.window_size - 1)
         state = env.get_state()
         episode_return = 0.0
 

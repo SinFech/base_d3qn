@@ -61,5 +61,12 @@ def make_env(
     reward: str,
     window_size: int,
     device: str,
+    trading_period: Optional[int] = None,
 ) -> TradingEnvironment:
-    return TradingEnvironment(df, reward=reward, window_size=window_size, device=device)
+    return TradingEnvironment(
+        df,
+        reward=reward,
+        window_size=window_size,
+        trading_period=trading_period,
+        device=device,
+    )

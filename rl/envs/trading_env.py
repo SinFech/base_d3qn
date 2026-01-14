@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Tuple
 
 import numpy as np
 import pandas as pd
@@ -15,27 +15,80 @@ class TradingEnvironment:
         data: pd.DataFrame,
         reward: str,
         window_size: int = 24,
+        trading_period: Optional[int] = None,
         device: str = "auto",
     ) -> None:
         self.data = data
         self.reward_f = reward if reward == "sr" else "profit"
         self.window_size = window_size
+        self.trading_period = trading_period
         self.device = (
             torch.device("cuda" if torch.cuda.is_available() else "cpu")
             if device == "auto"
             else torch.device(device)
         )
-        self.reset()
+        self.rng = np.random.default_rng()
+        self.last_start_index: Optional[int] = None
+        self.last_start_timestamp: Optional[str] = None
+        self._episode_end_index: Optional[int] = None
+        self.reset(start_index=self.window_size - 1)
 
-    def reset(self) -> None:
+    def _get_valid_start_range(self) -> Tuple[int, int]:
+        min_start = self.window_size - 1
+        max_start = len(self.data) - 1
+        if self.trading_period is not None:
+            max_start = len(self.data) - self.trading_period
+        return min_start, max_start
+
+    def _resolve_start_timestamp(self, start_index: int) -> Optional[str]:
+        if "Date" not in self.data.columns:
+            return None
+        timestamp = self.data.iloc[start_index]["Date"]
+        if isinstance(timestamp, pd.Timestamp):
+            return timestamp.isoformat()
+        return str(timestamp)
+
+    def reset(
+        self,
+        seed: Optional[int] = None,
+        start_index: Optional[int] = None,
+        options: Optional[dict] = None,
+    ) -> None:
         """Reset the environment. Must be called before step()."""
-        self.t = self.window_size - 1
+        if seed is not None:
+            self.rng = np.random.default_rng(seed)
+
+        min_start, max_start = self._get_valid_start_range()
+        if max_start < min_start:
+            raise ValueError(
+                "Invalid start_index range "
+                f"[{min_start}, {max_start}] for data length {len(self.data)} "
+                f"and trading_period {self.trading_period}."
+            )
+
+        if start_index is None:
+            start_index = int(self.rng.integers(min_start, max_start + 1))
+        else:
+            if not (min_start <= start_index <= max_start):
+                raise ValueError(
+                    "start_index must be in the range "
+                    f"[{min_start}, {max_start}] but got {start_index}."
+                )
+            start_index = int(start_index)
+
+        self.last_start_index = start_index
+        self.last_start_timestamp = self._resolve_start_timestamp(start_index)
+        self.t = start_index
         self.done = False
         self.profits = [0 for _ in range(len(self.data))]
         self.agent_positions = []
         self.agent_open_position_value = 0
         self.cumulative_return = [0 for _ in range(len(self.data))]
-        self.init_price = self.data.iloc[0, :]["Close"]
+        if self.trading_period is not None:
+            self._episode_end_index = start_index + self.trading_period - 1
+        else:
+            self._episode_end_index = len(self.data) - 1
+        self.init_price = self.data.iloc[start_index - (self.window_size - 1), :]["Close"]
 
     def get_state(self) -> Optional[torch.Tensor]:
         """Return the current state of the environment."""
@@ -110,7 +163,7 @@ class TradingEnvironment:
             self.done = True
 
         self.t += 1
-        if self.t == len(self.data) - 1:
+        if self._episode_end_index is not None and self.t >= self._episode_end_index:
             self.done = True
 
         return (
