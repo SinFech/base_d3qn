@@ -1,0 +1,89 @@
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+from typing import Dict, List
+
+import pandas as pd
+import yaml
+
+
+def parse_args() -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Summarize sweep runs")
+    parser.add_argument("--runs-dir", type=str, default="runs/sweeps")
+    parser.add_argument("--last-n", type=int, default=10)
+    parser.add_argument("--sort-by", type=str, default="mean_last_n")
+    parser.add_argument("--ascending", action="store_true")
+    parser.add_argument("--output-csv", type=str, default=None)
+    return parser.parse_args()
+
+
+def load_config(path: Path) -> Dict:
+    if not path.exists():
+        return {}
+    data = yaml.safe_load(path.read_text())
+    return data or {}
+
+
+def summarize_run(run_dir: Path, last_n: int) -> Dict[str, object]:
+    metrics_path = run_dir / "metrics.csv"
+    config_path = run_dir / "config_resolved.yaml"
+
+    if not metrics_path.exists():
+        return {}
+
+    df = pd.read_csv(metrics_path)
+    if df.empty:
+        return {}
+
+    config = load_config(config_path)
+
+    episode_return = df["episode_return"]
+    final_return = float(episode_return.iloc[-1])
+    mean_last_n = float(episode_return.tail(last_n).mean())
+    best_return = float(episode_return.max())
+
+    summary = {
+        "run_name": run_dir.name,
+        "final_return": final_return,
+        "mean_last_n": mean_last_n,
+        "best_return": best_return,
+    }
+
+    summary["reward"] = config.get("env", {}).get("reward")
+    summary["learning_rate"] = config.get("agent", {}).get("learning_rate")
+    summary["eps_steps"] = config.get("agent", {}).get("eps_steps")
+    summary["num_episodes"] = config.get("train", {}).get("num_episodes")
+
+    return summary
+
+
+def main() -> None:
+    args = parse_args()
+    runs_dir = Path(args.runs_dir)
+
+    rows: List[Dict[str, object]] = []
+    for run_dir in sorted(runs_dir.iterdir() if runs_dir.exists() else []):
+        if not run_dir.is_dir():
+            continue
+        summary = summarize_run(run_dir, args.last_n)
+        if summary:
+            rows.append(summary)
+
+    if not rows:
+        print("No runs found.")
+        return
+
+    df = pd.DataFrame(rows)
+    if args.sort_by in df.columns:
+        df = df.sort_values(by=args.sort_by, ascending=args.ascending)
+
+    if args.output_csv:
+        Path(args.output_csv).parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(args.output_csv, index=False)
+
+    print(df.to_string(index=False))
+
+
+if __name__ == "__main__":
+    main()

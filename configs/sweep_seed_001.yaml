@@ -1,0 +1,12 @@
+base_config: configs/extended_range.yaml
+output_dir: runs/sweeps_seed_001
+run_prefix: d3qn_sweep_001_seed
+max_parallel: 2
+gpu_id: 0
+
+overrides:
+  env.reward: [sr]
+  agent.learning_rate: [0.00025]
+  agent.eps_steps: [200]
+  train.num_episodes: [50]
+  run.seed: [1, 2, 3, 4, 5]

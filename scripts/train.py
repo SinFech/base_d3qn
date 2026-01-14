@@ -7,6 +7,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.append(str(ROOT))
 
+import yaml
+
 from rl.algos.d3qn.trainer import Config, load_config, train
 from rl.utils.path import build_run_name, build_run_paths
 
@@ -26,6 +28,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--log-interval", type=int, default=None)
     parser.add_argument("--checkpoint-interval", type=int, default=None)
     parser.add_argument("--output-dir", type=str, default="runs")
+    parser.add_argument(
+        "--override",
+        action="append",
+        default=[],
+        help="Override config values, e.g. --override agent.learning_rate=0.00025",
+    )
     return parser.parse_args()
 
 
@@ -53,10 +61,34 @@ def apply_overrides(config: Config, args: argparse.Namespace) -> Config:
     return config
 
 
+def _set_config_value(config: Config, path: str, value) -> None:
+    parts = path.split(".")
+    current = config
+    for part in parts[:-1]:
+        if not hasattr(current, part):
+            raise ValueError(f"Unknown config field: {path}")
+        current = getattr(current, part)
+    final = parts[-1]
+    if not hasattr(current, final):
+        raise ValueError(f"Unknown config field: {path}")
+    setattr(current, final, value)
+
+
+def apply_kv_overrides(config: Config, overrides: list[str]) -> Config:
+    for item in overrides:
+        if "=" not in item:
+            raise ValueError(f"Invalid override format: {item}")
+        key, raw_value = item.split("=", 1)
+        value = yaml.safe_load(raw_value)
+        _set_config_value(config, key, value)
+    return config
+
+
 def main() -> None:
     args = parse_args()
     config = load_config(Path(args.config))
     config = apply_overrides(config, args)
+    config = apply_kv_overrides(config, args.override)
 
     run_name = args.run_name or build_run_name(None)
     run_paths = build_run_paths(Path(args.output_dir), run_name)

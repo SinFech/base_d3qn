@@ -1,0 +1,12 @@
+base_config: configs/extended_range.yaml
+output_dir: runs/sweeps
+run_prefix: d3qn_sweep
+max_parallel: 2
+gpu_id: 0
+
+# Override keys use the same dotted paths as configs/default.yaml.
+overrides:
+  agent.learning_rate: [0.00025, 0.0005]
+  agent.eps_steps: [200, 500]
+  train.num_episodes: [50]
+  env.reward: [profit, sr]
