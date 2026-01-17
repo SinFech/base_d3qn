@@ -28,6 +28,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--epsilon", type=float, default=None)
     parser.add_argument("--device", type=str, default=None)
     parser.add_argument("--reward", type=str, default=None, choices=["profit", "sr"])
+    parser.add_argument("--start-date", type=str, default=None)
+    parser.add_argument("--end-date", type=str, default=None)
+    parser.add_argument("--output-dir", type=str, default=None)
     return parser.parse_args()
 
 
@@ -93,7 +96,7 @@ def _sample_start_indices(
 def main() -> None:
     args = parse_args()
     checkpoint_path = Path(args.checkpoint)
-    run_dir = _resolve_run_dir(checkpoint_path)
+    run_dir = Path(args.output_dir) if args.output_dir else _resolve_run_dir(checkpoint_path)
     logger = setup_run_logger("eval", run_dir)
 
     device_override = args.device or "auto"
@@ -107,6 +110,10 @@ def main() -> None:
         config.run.device = args.device
     if args.reward is not None:
         config.env.reward = args.reward
+    if args.start_date is not None:
+        config.data.start_date = args.start_date
+    if args.end_date is not None:
+        config.data.end_date = args.end_date
 
     eval_cfg = config.eval
     if args.episodes is not None:
