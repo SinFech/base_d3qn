@@ -70,6 +70,8 @@ def make_env(
     window_size: int,
     device: str,
     trading_period: Optional[int] = None,
+    max_positions: Optional[int] = None,
+    sell_mode: str = "all",
     obs_config=None,
 ) -> TradingEnvironment:
     env = TradingEnvironment(
@@ -78,6 +80,8 @@ def make_env(
         window_size=window_size,
         trading_period=trading_period,
         device=device,
+        max_positions=max_positions,
+        sell_mode=sell_mode,
     )
     obs_type = _get_cfg_value(obs_config, "type", "raw")
     if obs_type == "signature":

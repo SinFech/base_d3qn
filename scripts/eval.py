@@ -30,6 +30,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--reward", type=str, default=None, choices=["profit", "sr"])
     parser.add_argument("--start-date", type=str, default=None)
     parser.add_argument("--end-date", type=str, default=None)
+    parser.add_argument("--trading-period", type=int, default=None)
     parser.add_argument("--output-dir", type=str, default=None)
     return parser.parse_args()
 
@@ -93,6 +94,18 @@ def _sample_start_indices(
     return [int(value) for value in picks.tolist()]
 
 
+def _unwrap_trading_env(env):
+    current = env
+    for _ in range(10):
+        if hasattr(current, "agent_positions"):
+            return current
+        if hasattr(current, "env"):
+            current = current.env
+            continue
+        break
+    return None
+
+
 def main() -> None:
     args = parse_args()
     checkpoint_path = Path(args.checkpoint)
@@ -114,6 +127,8 @@ def main() -> None:
         config.data.start_date = args.start_date
     if args.end_date is not None:
         config.data.end_date = args.end_date
+    if args.trading_period is not None:
+        config.env.trading_period = args.trading_period
 
     eval_cfg = config.eval
     if args.episodes is not None:
@@ -172,6 +187,8 @@ def main() -> None:
         config.env.window_size,
         device,
         trading_period=config.env.trading_period,
+        max_positions=config.env.max_positions,
+        sell_mode=config.env.sell_mode,
         obs_config=config.env.obs,
     )
     obs_dim = getattr(env, "obs_dim", config.env.window_size)
@@ -185,13 +202,22 @@ def main() -> None:
     returns: List[float] = []
     episode_rows: List[dict] = []
     total_action_counts = {name: 0 for name in action_names}
+    position_sizes: List[int] = []
+    position_change_count = 0
+    position_turnover = 0
     with torch.no_grad():
+        base_env = _unwrap_trading_env(env)
+        track_positions = base_env is not None
         for episode_id, start_index in enumerate(start_indices):
             env.reset(seed=eval_seed, start_index=start_index)
             agent.reset_episode()
             state = env.get_state()
             episode_return = 0.0
             episode_action_counts = {name: 0 for name in action_names}
+            episode_positions: List[int] = []
+            episode_position_change_count = 0
+            episode_position_turnover = 0
+            previous_position_size = None
 
             while state is not None:
                 action = agent.select_action(
@@ -208,6 +234,18 @@ def main() -> None:
                     episode_action_counts[action_name] += 1
                     total_action_counts[action_name] += 1
                 reward, done, _ = env.step(action)
+                if track_positions:
+                    position_size = len(base_env.agent_positions)
+                    episode_positions.append(position_size)
+                    position_sizes.append(position_size)
+                    if previous_position_size is not None:
+                        delta = position_size - previous_position_size
+                        if delta != 0:
+                            episode_position_change_count += 1
+                            position_change_count += 1
+                        episode_position_turnover += abs(delta)
+                        position_turnover += abs(delta)
+                    previous_position_size = position_size
                 episode_return += reward.item()
                 state = env.get_state()
                 if done:
@@ -227,6 +265,20 @@ def main() -> None:
                 row["start_timestamp"] = env.last_start_timestamp
             for name in action_names:
                 row[f"action_count_{name}"] = episode_action_counts[name]
+            if episode_positions:
+                positions_array = np.array(episode_positions, dtype=float)
+                row.update(
+                    {
+                        "position_mean": float(np.mean(positions_array)),
+                        "position_std": float(np.std(positions_array)),
+                        "position_min": int(np.min(positions_array)),
+                        "position_max": int(np.max(positions_array)),
+                        "position_zero_rate": float(np.mean(positions_array == 0)),
+                        "position_end": int(episode_positions[-1]),
+                        "position_change_count": episode_position_change_count,
+                        "position_turnover": episode_position_turnover,
+                    }
+                )
             episode_rows.append(row)
 
     include_timestamp = any("start_timestamp" in row for row in episode_rows)
@@ -245,6 +297,19 @@ def main() -> None:
         fieldnames.append("episode_steps")
         for name in action_names:
             fieldnames.append(f"action_count_{name}")
+        if position_sizes:
+            fieldnames.extend(
+                [
+                    "position_mean",
+                    "position_std",
+                    "position_min",
+                    "position_max",
+                    "position_zero_rate",
+                    "position_end",
+                    "position_change_count",
+                    "position_turnover",
+                ]
+            )
         with episodes_path.open("w", newline="") as handle:
             writer = csv.DictWriter(handle, fieldnames=fieldnames)
             writer.writeheader()
@@ -298,6 +363,21 @@ def main() -> None:
         "action_avg_counts_per_episode": action_avg_counts,
         "action_total_steps": total_actions,
     }
+    if position_sizes:
+        positions_array = np.array(position_sizes, dtype=float)
+        summary["position_stats"] = {
+            "mean": float(np.mean(positions_array)),
+            "std": float(np.std(positions_array)),
+            "median": float(np.median(positions_array)),
+            "min": int(np.min(positions_array)),
+            "max": int(np.max(positions_array)),
+            "p25": float(np.percentile(positions_array, 25)),
+            "p75": float(np.percentile(positions_array, 75)),
+            "zero_rate": float(np.mean(positions_array == 0)),
+            "steps": int(len(position_sizes)),
+            "change_count": int(position_change_count),
+            "turnover": float(position_turnover),
+        }
 
     if include_timestamp:
         summary["start_timestamps"] = [row["start_timestamp"] for row in episode_rows]

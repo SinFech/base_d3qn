@@ -16,12 +16,20 @@ class TradingEnvironment:
         reward: str,
         window_size: int = 24,
         trading_period: Optional[int] = None,
+        max_positions: Optional[int] = None,
+        sell_mode: str = "all",
         device: str = "auto",
     ) -> None:
         self.data = data
         self.reward_f = reward if reward == "sr" else "profit"
         self.window_size = window_size
         self.trading_period = trading_period
+        if max_positions is not None and max_positions < 1:
+            raise ValueError("max_positions must be >= 1 or None.")
+        if sell_mode not in {"all", "one"}:
+            raise ValueError("sell_mode must be either 'all' or 'one'.")
+        self.max_positions = int(max_positions) if max_positions is not None else None
+        self.sell_mode = sell_mode
         self.device = (
             torch.device("cuda" if torch.cuda.is_available() else "cpu")
             if device == "auto"
@@ -103,28 +111,34 @@ class TradingEnvironment:
             act = int(act.item())
 
         reward = 0
-        state = self.data.iloc[self.t, :]["Close"]
+        current_price = self.data.iloc[self.t, :]["Close"]
+        state = current_price
 
         if act == 0:  # Do nothing
             pass
 
         if act == 1:  # Buy
-            self.agent_positions.append(self.data.iloc[self.t, :]["Close"])
+            if self.max_positions is None or len(self.agent_positions) < self.max_positions:
+                self.agent_positions.append(current_price)
 
         sell_nothing = False
         if act == 2:  # Sell
-            profits = 0
             if len(self.agent_positions) < 1:
                 sell_nothing = True
-            for position in self.agent_positions:
-                profits += self.data.iloc[self.t, :]["Close"] - position
-
-            self.profits[self.t] = profits
-            self.agent_positions = []
+            else:
+                profits = 0.0
+                if self.sell_mode == "all":
+                    for position in self.agent_positions:
+                        profits += current_price - position
+                    self.agent_positions = []
+                else:
+                    position = self.agent_positions.pop(0)
+                    profits = current_price - position
+                self.profits[self.t] = profits
 
         self.agent_open_position_value = 0
         for position in self.agent_positions:
-            self.agent_open_position_value += self.data.iloc[self.t, :]["Close"] - position
+            self.agent_open_position_value += current_price - position
             self.cumulative_return[self.t] += (position - self.init_price) / self.init_price
 
         reward = 0

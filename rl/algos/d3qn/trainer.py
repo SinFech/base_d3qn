@@ -32,6 +32,8 @@ class EnvConfig:
     window_size: int = 24
     trading_period: int = 500
     train_split: float = 0.8
+    max_positions: Optional[int] = None
+    sell_mode: str = "all"
     obs: "ObsConfig" = field(default_factory=lambda: ObsConfig())
 
 
@@ -254,6 +256,8 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
         config.env.reward,
         config.env.window_size,
         device,
+        max_positions=config.env.max_positions,
+        sell_mode=config.env.sell_mode,
         obs_config=config.env.obs,
     )
     obs_dim = _resolve_obs_dim(env, config)
@@ -390,6 +394,8 @@ def evaluate(
         config.env.window_size,
         device,
         trading_period=None,
+        max_positions=config.env.max_positions,
+        sell_mode=config.env.sell_mode,
         obs_config=config.env.obs,
     )
     obs_dim = _resolve_obs_dim(dim_env, config)
@@ -414,6 +420,8 @@ def evaluate(
             config.env.window_size,
             device,
             trading_period=None,
+            max_positions=config.env.max_positions,
+            sell_mode=config.env.sell_mode,
             obs_config=config.env.obs,
         )
         env.reset(start_index=env.window_size - 1)

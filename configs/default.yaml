@@ -11,6 +11,8 @@ env:
   window_size: 24
   trading_period: 200
   train_split: 0.8
+  max_positions: 5
+  sell_mode: one
   obs:
     type: raw
     signature:
