@@ -20,15 +20,20 @@ kept under `legacy/src/` for reference only.
 - `scripts/`
   - `train.py` — training entry point
   - `eval.py` — evaluation entry point
-- `legacy/src/` — deprecated notebook-derived code kept for reference
-- `notebooks/`
-  - `main.ipynb` — example workflow (load data → create env/agent → test, optional train)
-  - `train_tests.ipynb` — experiments/tests notebook
+- `legacy/` — deprecated notebook-derived code kept for reference
 - `data/`
   - `Bitcoin History 2010-2024.csv`
+- `reports/`
+  - `progress.md` — running progress log
+  - `experiments.md` — experiment results log
 
 > Note: The repo currently contains `__pycache__/` and `.DS_Store` entries. Do not add more such
 > machine-specific or generated files in future changes.
+
+## Experiment logging
+
+When running or modifying experiment-related code, review `reports/progress.md` and
+`reports/experiments.md` first to stay aligned with the latest progress and results.
 
 ## Environment & setup
 

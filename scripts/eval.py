@@ -126,6 +126,8 @@ def main() -> None:
 
     set_global_seeds(eval_seed)
     device = _resolve_device(config.run.device)
+    action_name_map = {0: "hold", 1: "buy", 2: "sell"}
+    action_names = [action_name_map.get(idx, f"action_{idx}") for idx in range(config.agent.action_number)]
 
     df = _prepare_data(config)
     data_len = len(df)
@@ -182,12 +184,14 @@ def main() -> None:
 
     returns: List[float] = []
     episode_rows: List[dict] = []
+    total_action_counts = {name: 0 for name in action_names}
     with torch.no_grad():
         for episode_id, start_index in enumerate(start_indices):
             env.reset(seed=eval_seed, start_index=start_index)
             agent.reset_episode()
             state = env.get_state()
             episode_return = 0.0
+            episode_action_counts = {name: 0 for name in action_names}
 
             while state is not None:
                 action = agent.select_action(
@@ -195,6 +199,14 @@ def main() -> None:
                     training=False,
                     epsilon_override=eval_cfg.epsilon,
                 )
+                if isinstance(action, torch.Tensor):
+                    action_index = int(action.item())
+                else:
+                    action_index = int(action)
+                action_name = action_name_map.get(action_index, f"action_{action_index}")
+                if action_name in episode_action_counts:
+                    episode_action_counts[action_name] += 1
+                    total_action_counts[action_name] += 1
                 reward, done, _ = env.step(action)
                 episode_return += reward.item()
                 state = env.get_state()
@@ -202,15 +214,19 @@ def main() -> None:
                     break
 
             returns.append(episode_return)
+            episode_steps = sum(episode_action_counts.values())
             row = {
                 "episode_id": episode_id,
                 "start_index": int(env.last_start_index)
                 if env.last_start_index is not None
                 else int(start_index),
                 "episode_return": episode_return,
+                "episode_steps": episode_steps,
             }
             if env.last_start_timestamp is not None:
                 row["start_timestamp"] = env.last_start_timestamp
+            for name in action_names:
+                row[f"action_count_{name}"] = episode_action_counts[name]
             episode_rows.append(row)
 
     include_timestamp = any("start_timestamp" in row for row in episode_rows)
@@ -226,6 +242,9 @@ def main() -> None:
         if include_timestamp:
             fieldnames.append("start_timestamp")
         fieldnames.append("episode_return")
+        fieldnames.append("episode_steps")
+        for name in action_names:
+            fieldnames.append(f"action_count_{name}")
         with episodes_path.open("w", newline="") as handle:
             writer = csv.DictWriter(handle, fieldnames=fieldnames)
             writer.writeheader()
@@ -240,6 +259,15 @@ def main() -> None:
     max_return = float(np.max(returns_array)) if returns_array.size else 0.0
     p25 = float(np.percentile(returns_array, 25)) if returns_array.size else 0.0
     p75 = float(np.percentile(returns_array, 75)) if returns_array.size else 0.0
+    total_actions = int(sum(total_action_counts.values()))
+    action_rates = {
+        name: float(count / total_actions) if total_actions > 0 else 0.0
+        for name, count in total_action_counts.items()
+    }
+    action_avg_counts = {
+        name: float(count / len(returns)) if returns else 0.0
+        for name, count in total_action_counts.items()
+    }
 
     summary = {
         "num_episodes": eval_cfg.num_episodes,
@@ -265,6 +293,10 @@ def main() -> None:
         },
         "data_len": data_len,
         "start_indices": start_indices,
+        "action_counts": total_action_counts,
+        "action_rates": action_rates,
+        "action_avg_counts_per_episode": action_avg_counts,
+        "action_total_steps": total_actions,
     }
 
     if include_timestamp:
