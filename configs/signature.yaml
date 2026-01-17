@@ -17,7 +17,11 @@ env:
     type: signature
     signature:
       backend: pysiglib
-      embedding: price_return
+      embedding:
+        log_price: {}
+        log_return: {}
+        rolling_vol:
+          window: 5
       logsig:
         degree: 2
         method: 1

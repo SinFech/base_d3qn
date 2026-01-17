@@ -98,6 +98,7 @@ def make_env(
             raise ValueError(f"Unsupported signature backend: {backend}")
         path_builder = PathBuilder(
             embedding=_get_cfg_value(signature_cfg, "embedding", "price_return"),
+            rolling_mean_window=_get_cfg_value(signature_cfg, "rolling_mean_window", 5),
             device=_get_cfg_value(torch_cfg, "device", "cpu"),
             dtype=_get_cfg_value(torch_cfg, "dtype", "float32"),
         )

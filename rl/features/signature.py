@@ -24,18 +24,98 @@ class PathBuilder:
 
     def __init__(
         self,
-        embedding: str = "price_return",
+        embedding: Optional[dict] = None,
+        rolling_mean_window: int = 5,
         device: str | torch.device = "cpu",
         dtype: str | torch.dtype = "float32",
         eps: float = 1e-8,
     ) -> None:
-        if embedding != "price_return":
-            raise ValueError(f"Unsupported embedding: {embedding}")
+        if embedding is None:
+            embedding = {"log_price": {}, "log_return": {}}
         self.embedding = embedding
         self.device = torch.device(device)
         self.dtype = _resolve_torch_dtype(dtype)
         self.eps = eps
-        self.base_dim = 2
+        if rolling_mean_window < 1:
+            raise ValueError("rolling_mean_window must be >= 1.")
+        self.rolling_mean_window = int(rolling_mean_window)
+        self.embedding_components, self.embedding_options = self._resolve_embedding_components(embedding)
+        self.base_dim = len(self.embedding_components)
+
+    def _resolve_embedding_components(self, embedding: dict) -> tuple[list[str], dict[str, dict]]:
+        if not isinstance(embedding, dict):
+            raise ValueError("embedding must be a non-empty dict.")
+        if not embedding:
+            raise ValueError("embedding must be a non-empty dict.")
+        options: dict[str, dict] = {}
+        components = list(embedding.keys())
+        for key, value in embedding.items():
+            if value is None:
+                options[key] = {}
+            elif isinstance(value, dict):
+                options[key] = value
+            else:
+                raise ValueError("embedding component config must be a dict.")
+
+        alias_map = {
+            "price": "log_price",
+            "logprice": "log_price",
+            "log_price": "log_price",
+            "return": "log_return",
+            "logreturn": "log_return",
+            "log_return": "log_return",
+            "rolling_mean": "rolling_mean",
+            "rolling_vol": "rolling_vol",
+            "rolling_std": "rolling_vol",
+            "vol": "rolling_vol",
+            "volatility": "rolling_vol",
+        }
+        normalized: list[str] = []
+        for raw in components:
+            if not isinstance(raw, str):
+                raise ValueError("embedding components must be strings.")
+            key = raw.strip()
+            key = alias_map.get(key, key)
+            if key not in {"log_price", "log_return", "rolling_mean", "rolling_vol"}:
+                raise ValueError(f"Unsupported embedding component: {raw}")
+            normalized.append(key)
+
+        if len(set(normalized)) != len(normalized):
+            raise ValueError("embedding components must be unique.")
+        normalized_options = {alias_map.get(key, key): value for key, value in options.items()}
+        return normalized, normalized_options
+
+    def _rolling_mean(self, values: torch.Tensor, window: Optional[int] = None) -> torch.Tensor:
+        resolved_window = self.rolling_mean_window if window is None else int(window)
+        if resolved_window <= 1:
+            return values.clone()
+        cumsum = torch.cumsum(values, dim=0)
+        idx = torch.arange(values.shape[0], device=values.device)
+        start = idx - (resolved_window - 1)
+        start = torch.clamp(start, min=0)
+        prev = torch.where(start > 0, cumsum[start - 1], torch.zeros_like(cumsum))
+        window_sum = cumsum - prev
+        denom = torch.minimum(idx + 1, torch.full_like(idx, resolved_window)).to(values.dtype)
+        return window_sum / denom
+
+    def _rolling_std(self, values: torch.Tensor, window: Optional[int] = None) -> torch.Tensor:
+        resolved_window = self.rolling_mean_window if window is None else int(window)
+        if resolved_window <= 1:
+            return torch.zeros_like(values)
+        cumsum = torch.cumsum(values, dim=0)
+        cumsum_sq = torch.cumsum(values * values, dim=0)
+        idx = torch.arange(values.shape[0], device=values.device)
+        start = idx - (resolved_window - 1)
+        start = torch.clamp(start, min=0)
+        prev = torch.where(start > 0, cumsum[start - 1], torch.zeros_like(cumsum))
+        prev_sq = torch.where(start > 0, cumsum_sq[start - 1], torch.zeros_like(cumsum_sq))
+        window_sum = cumsum - prev
+        window_sum_sq = cumsum_sq - prev_sq
+        denom = torch.minimum(idx + 1, torch.full_like(idx, resolved_window)).to(values.dtype)
+        mean = window_sum / denom
+        mean_sq = window_sum_sq / denom
+        var = torch.clamp(mean_sq - mean * mean, min=0.0)
+        return torch.sqrt(var)
 
     def build(self, window_close: np.ndarray | torch.Tensor) -> torch.Tensor:
         close = torch.as_tensor(window_close, device=self.device, dtype=self.dtype)
@@ -50,7 +130,19 @@ class PathBuilder:
         logreturn = torch.zeros_like(log_close)
         if log_close.numel() > 1:
             logreturn[1:] = log_close[1:] - log_close[:-1]
-        return torch.stack([rel_logprice, logreturn], dim=-1)
+        features = []
+        for component in self.embedding_components:
+            if component == "log_price":
+                features.append(rel_logprice)
+            elif component == "log_return":
+                features.append(logreturn)
+            elif component == "rolling_mean":
+                window = self.embedding_options.get("rolling_mean", {}).get("window", self.rolling_mean_window)
+                features.append(self._rolling_mean(logreturn, window=window))
+            elif component == "rolling_vol":
+                window = self.embedding_options.get("rolling_vol", {}).get("window", self.rolling_mean_window)
+                features.append(self._rolling_std(logreturn, window=window))
+        return torch.stack(features, dim=-1)
 
     def __call__(self, window_close: np.ndarray | torch.Tensor) -> torch.Tensor:
         return self.build(window_close)

@@ -62,7 +62,8 @@ class SignaturePerfConfig:
 @dataclass
 class SignatureObsConfig:
     backend: str = "pysiglib"
-    embedding: str = "price_return"
+    embedding: dict = field(default_factory=lambda: {"log_price": {}, "log_return": {}})
+    rolling_mean_window: int = 5
     logsig: LogSigConfig = field(default_factory=LogSigConfig)
     torch: SignatureTorchConfig = field(default_factory=SignatureTorchConfig)
     perf: SignaturePerfConfig = field(default_factory=SignaturePerfConfig)
@@ -150,7 +151,8 @@ def config_from_dict(data: Dict) -> Config:
 
     signature_cfg = SignatureObsConfig(
         backend=raw_signature.get("backend", "pysiglib"),
-        embedding=raw_signature.get("embedding", "price_return"),
+        embedding=raw_signature.get("embedding", {"log_price": {}, "log_return": {}}),
+        rolling_mean_window=raw_signature.get("rolling_mean_window", 5),
         logsig=LogSigConfig(**raw_logsig),
         torch=SignatureTorchConfig(**raw_signature_torch),
         perf=SignaturePerfConfig(**raw_signature_perf),

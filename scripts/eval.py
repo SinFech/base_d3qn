@@ -31,6 +31,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--start-date", type=str, default=None)
     parser.add_argument("--end-date", type=str, default=None)
     parser.add_argument("--trading-period", type=int, default=None)
+    parser.add_argument("--sell-mode", type=str, default=None, choices=["all", "one"])
+    parser.add_argument("--max-positions", type=int, default=None)
     parser.add_argument("--output-dir", type=str, default=None)
     return parser.parse_args()
 
@@ -129,6 +131,13 @@ def main() -> None:
         config.data.end_date = args.end_date
     if args.trading_period is not None:
         config.env.trading_period = args.trading_period
+    if args.sell_mode is not None:
+        config.env.sell_mode = args.sell_mode
+    if args.max_positions is not None:
+        if args.max_positions < 1:
+            config.env.max_positions = None
+        else:
+            config.env.max_positions = args.max_positions
 
     eval_cfg = config.eval
     if args.episodes is not None:
