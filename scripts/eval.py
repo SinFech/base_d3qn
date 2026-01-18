@@ -31,7 +31,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--start-date", type=str, default=None)
     parser.add_argument("--end-date", type=str, default=None)
     parser.add_argument("--trading-period", type=int, default=None)
-    parser.add_argument("--sell-mode", type=str, default=None, choices=["all", "one"])
+    parser.add_argument("--sell-mode", type=str, default=None, choices=["all", "one", "all_cap"])
     parser.add_argument("--max-positions", type=int, default=None)
     parser.add_argument("--output-dir", type=str, default=None)
     return parser.parse_args()

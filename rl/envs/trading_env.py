@@ -26,8 +26,10 @@ class TradingEnvironment:
         self.trading_period = trading_period
         if max_positions is not None and max_positions < 1:
             raise ValueError("max_positions must be >= 1 or None.")
-        if sell_mode not in {"all", "one"}:
-            raise ValueError("sell_mode must be either 'all' or 'one'.")
+        if sell_mode not in {"all", "one", "all_cap"}:
+            raise ValueError("sell_mode must be 'all', 'one', or 'all_cap'.")
+        if sell_mode == "all_cap" and max_positions is None:
+            raise ValueError("sell_mode='all_cap' requires max_positions to be set.")
         self.max_positions = int(max_positions) if max_positions is not None else None
         self.sell_mode = sell_mode
         self.device = (
@@ -127,7 +129,7 @@ class TradingEnvironment:
                 sell_nothing = True
             else:
                 profits = 0.0
-                if self.sell_mode == "all":
+                if self.sell_mode in {"all", "all_cap"}:
                     for position in self.agent_positions:
                         profits += current_price - position
                     self.agent_positions = []
