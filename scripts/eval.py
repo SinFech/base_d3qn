@@ -31,7 +31,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--start-date", type=str, default=None)
     parser.add_argument("--end-date", type=str, default=None)
     parser.add_argument("--trading-period", type=int, default=None)
-    parser.add_argument("--sell-mode", type=str, default=None, choices=["all", "one", "all_cap"])
+    parser.add_argument("--sell-mode", type=str, default=None, choices=["all", "one", "all_cap", "one_plus"])
     parser.add_argument("--max-positions", type=int, default=None)
     parser.add_argument("--output-dir", type=str, default=None)
     return parser.parse_args()
@@ -48,6 +48,14 @@ def _resolve_device(device: str) -> str:
     if device == "auto":
         return "cuda" if torch.cuda.is_available() else "cpu"
     return device
+
+
+def _build_action_name_map(action_number: int, sell_mode: str) -> dict[int, str]:
+    if action_number >= 4:
+        if sell_mode == "one_plus":
+            return {0: "hold", 1: "buy", 2: "sell_one", 3: "sell_all"}
+        return {0: "hold", 1: "buy", 2: "sell", 3: "sell_all"}
+    return {0: "hold", 1: "buy", 2: "sell"}
 
 
 def _prepare_data(config: Config):
@@ -150,7 +158,7 @@ def main() -> None:
 
     set_global_seeds(eval_seed)
     device = _resolve_device(config.run.device)
-    action_name_map = {0: "hold", 1: "buy", 2: "sell"}
+    action_name_map = _build_action_name_map(config.agent.action_number, config.env.sell_mode)
     action_names = [action_name_map.get(idx, f"action_{idx}") for idx in range(config.agent.action_number)]
 
     df = _prepare_data(config)
