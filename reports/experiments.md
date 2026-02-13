@@ -246,3 +246,23 @@ This section summarizes the shared configuration used across recent experiments.
 - Outcome: Baseline remains positive in OOS with non-trivial sell frequency; signature sell-one runs stay negative with very low sell rates.
 - Notes: Signature sell-one checkpoints store embedding as a legacy string (price_return); evaluation mapped it to {log_price, log_return} for compatibility.
 - Artifacts: runs/baseline_sell_one_e8a931/eval_oos_2021_2024/eval_summary.json, runs/signature2_sell_one_83f00e/eval_oos_2021_2024/eval_summary.json, runs/signature3_sell_one_9ba2a8/eval_oos_2021_2024/eval_summary.json.
+
+### 2026-02-13 - Signature sr_enhanced metric refactor and reruns
+- Goal: Make return-rate and periodic eval metrics consistent and diagnosable for signature + `sr_enhanced` experiments.
+- Hypothesis: A unified equity-based return-rate formula and eval diagnostics will remove ambiguous metric interpretation and expose true environment behavior.
+- Config:
+  - Training config: `configs/test_signature.yaml`
+  - Reward: `sr_enhanced`
+  - `trading_period=500`, `sell_mode=one`, `max_positions=5`
+  - Periodic eval: every 20 episodes, 50 fixed windows (`eval_seed=20240101`)
+- Data: 2014-01-01 to 2020-12-31.
+- Metrics:
+  - `test_signature_sr_enhanced_a92a03` (`eval_summary.json`): mean_reward_return `0.0247`, mean_return_rate `11.9890` (about `1198.90%`), sharpe_ratio `0.7070`, diagnostics `initial_state_none_episodes=0`, `zero_step_episodes=0`.
+  - `testsignatueenhanced_e8a185` (`eval_history.csv` @episode 200): mean_reward_return `-0.0351`, mean_return_rate `136.5414` (percent in eval_history), sharpe_ratio `0.4743`, win_rate `0.44`.
+  - `testsignatueenhanced_e8a185` (`eval_summary.json`, regenerated after fixes): mean_reward_return `-7.7224`, mean_return_rate `12.2015`, mean_return_rate_pct `1220.1461`, sharpe_ratio `0.5938`, diagnostics `initial_state_none_episodes=0`, `zero_step_episodes=0`.
+- Outcome: Metrics are now consistently named (`reward_return`) and return-rate is consistently equity-based; periodic eval and standalone eval both expose zero-step diagnostics.
+- Notes:
+  - `eval_history.csv` stores return-rate in percent; `eval_summary.json` now stores both decimal (`mean_return_rate`) and percent (`mean_return_rate_pct`) fields for compatibility.
+  - Reward-logic fix removed hold-reward overwrite for non-`sr_enhanced` modes.
+  - Return-rate magnitude remains high because current environment has no explicit cash/margin constraint.
+- Artifacts: runs/test_signature_sr_enhanced_a92a03/eval_summary.json, runs/test_signature_sr_enhanced_a92a03/eval_history.csv, runs/testsignatueenhanced_e8a185/eval_history.csv, runs/testsignatueenhanced_e8a185/eval_summary.json, runs/testsignatueenhanced_e8a185/eval_episodes.csv.

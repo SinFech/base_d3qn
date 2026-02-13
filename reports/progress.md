@@ -33,3 +33,9 @@ A running log of project progress that is easy for humans and agents to parse.
 - Changes: Added OOS 2021-2024 eval summaries for baseline_sell_one and signature sell_one runs; logged metrics in experiments.md.
 - Blockers: None.
 - Next: Compare sell-one vs sell-one+ in bear windows and decide if reward shaping is needed to increase sell usage.
+
+### 2026-02-13
+- Summary: Stabilized sr_enhanced training/evaluation metrics and refreshed signature experiment outputs.
+- Changes: Added `sr_enhanced` support to train/eval CLI choices; fixed epsilon decay to global-step linear schedule; added periodic in-training eval (`eval_history.csv`) with fixed-window sampling and richer metrics; renamed episode metric field to `reward_return`; unified return-rate formula to `(equity_end / equity_start) - 1`; added eval diagnostics (`initial_state_none_episodes`, `zero_step_episodes`); fixed reward-overwrite bug in env so `profit/sr` rewards are no longer overwritten by hold shaping; aligned `trainer.evaluate()` episode length with configured `trading_period`; added percentage fields (`mean_return_rate_pct`, `std_return_rate_pct`, `median_return_rate_pct`) to `eval_summary.json`; added `configs/test_signature.yaml`; ran `testsignatueenhanced_e8a185` and regenerated eval artifacts.
+- Blockers: Return-rate can still be very large under the current no-cash-constraint environment design (implicit leverage).
+- Next: Introduce explicit cash/margin accounting in environment equity to constrain leverage and make return-rate magnitudes financially realistic.

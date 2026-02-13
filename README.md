@@ -1,9 +1,22 @@
 # Base D3QN Trading
 
-Training-first refactor of the D3QN trading baseline. Core logic lives in `rl/`,
-with simple script entrypoints in `scripts/` and notebooks under `notebooks/`.
+Training-first refactor of a D3QN-style trading baseline.
+Core code lives in `rl/`, with CLI entrypoints in `scripts/`.
 
-## Quickstart
+## Repository Structure
+
+- `rl/algos/d3qn/`: agent, schedules, trainer, replay buffer, networks.
+- `rl/envs/`: trading environment and environment builders.
+- `scripts/train.py`: training entrypoint.
+- `scripts/eval.py`: checkpoint evaluation entrypoint.
+- `configs/`: experiment configurations.
+- `runs/`: output artifacts per run.
+- `reports/`: progress and experiment logs.
+- `legacy/`: notebook-derived reference code.
+
+## Setup
+
+Use Python 3.10+ and `uv`:
 
 ```bash
 uv venv .venv
@@ -11,48 +24,87 @@ source .venv/bin/activate
 uv sync
 ```
 
-## Train
+Prefer `.venv/bin/python` for all commands.
+
+## Training
+
+Basic run:
 
 ```bash
-python scripts/train.py --config configs/default.yaml --run-name d3qn_profit
+./.venv/bin/python scripts/train.py --config configs/default.yaml --run-name d3qn_profit --output-dir runs
 ```
 
-Artifacts are written to `runs/<run_name>/`:
-- `runs/<run_name>/checkpoints/`
-- `runs/<run_name>/metrics.csv`
-- `runs/<run_name>/tensorboard/`
-- `runs/<run_name>/config_resolved.yaml`
-
-## Evaluate
+Signature observation example:
 
 ```bash
-python scripts/eval.py --checkpoint runs/<run_name>/checkpoints/checkpoint_latest.pt
+./.venv/bin/python scripts/train.py --config configs/test_signature.yaml --run-name test_signature --reward sr_enhanced --output-dir runs
 ```
 
-## Smoke test
+Useful overrides:
+
+- `--reward {profit,sr,sr_enhanced}`
+- `--num-episodes`, `--total-steps`
+- `--device`
+- `--override key=value` (repeatable), for example:
+  - `--override train.eval_interval=20`
+  - `--override train.eval_episodes=50`
+
+### Training Artifacts
+
+Each run writes to `runs/<run_name>/`:
+
+- `config_resolved.yaml`: full resolved config snapshot.
+- `metrics.csv`: episode-level training metrics (`reward_return`, epsilon, loss, q).
+- `checkpoints/`: periodic and latest checkpoints.
+- `eval_history.csv`: periodic in-training eval snapshots (if enabled).
+- `run.log`: logger output.
+- `tensorboard/`: TensorBoard event files.
+
+## Evaluation
+
+Evaluate a checkpoint:
 
 ```bash
-python scripts/smoke_test.py
+./.venv/bin/python scripts/eval.py \
+  --config runs/<run_name>/config_resolved.yaml \
+  --checkpoint runs/<run_name>/checkpoints/checkpoint_latest.pt \
+  --output-dir runs/<run_name>
 ```
 
-## Configs and reproducibility
+### Eval Outputs
 
-- Update `configs/default.yaml` for reproducible experiments.
-- Use `--seed`, `--num-episodes`, `--total-steps`, and other CLI overrides to
-  create variations without editing code.
-- Each run writes a resolved config snapshot next to the logs.
+- `eval_summary.json`: aggregate metrics.
+- `eval_episodes.csv`: per-episode rows (when `eval.save_per_episode=true`).
 
-## Signature observations (logsignature)
+Key metric naming:
 
-Install `pysiglib`, then set `env.obs.type: signature` and `model.type: mlp_dueling`
-in your config (see `configs/signature_smoke.yaml` for a minimal example).
+- `reward_return`: sum of step rewards over one episode.
+- `return_rate`: portfolio return computed as `(equity_end / equity_start) - 1`.
+- `*_pct` fields in `eval_summary.json`: percentage version of return rates.
+- `win_rate`: ratio of episodes with positive `reward_return` (reward-based win rate).
 
-## Notebooks
+Diagnostics:
 
-Notebooks are consumers of the `rl/` modules. Use them to explore training and
-analysis, not as the primary source of training logic.
+- `initial_state_none_episodes`
+- `zero_step_episodes`
 
-## Legacy code
+These help detect evaluation loops that fail to run steps.
 
-The original notebook-derived code is preserved under `legacy/` for reference.
-Use the new `rl/` modules and `scripts/` entrypoints for current experiments.
+## Recent Behavioral Notes
+
+- `sr_enhanced` reward is supported end-to-end (`train.py`, `eval.py`, env).
+- Epsilon now decays linearly over global environment steps (not reset each episode).
+- In-training periodic eval uses fixed windows by seed and logs to `eval_history.csv`.
+- `trainer.evaluate()` and `scripts/eval.py` now use consistent `trading_period` handling.
+
+## Reports
+
+- Progress timeline: `reports/progress.md`
+- Experiment metrics log: `reports/experiments.md`
+
+Update both when adding new training/evaluation changes.
+
+## Legacy and Notebooks
+
+`legacy/` keeps notebook-era reference code.
+Use `rl/` + `scripts/` for current experiments and reproducible runs.

@@ -27,7 +27,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--episodes", type=int, default=None)
     parser.add_argument("--epsilon", type=float, default=None)
     parser.add_argument("--device", type=str, default=None)
-    parser.add_argument("--reward", type=str, default=None, choices=["profit", "sr"])
+    parser.add_argument("--reward", type=str, default=None, choices=["profit", "sr", "sr_enhanced"])
     parser.add_argument("--start-date", type=str, default=None)
     parser.add_argument("--end-date", type=str, default=None)
     parser.add_argument("--trading-period", type=int, default=None)
@@ -217,11 +217,14 @@ def main() -> None:
     agent.target_net.eval()
 
     returns: List[float] = []
+    return_rates: List[float] = []
     episode_rows: List[dict] = []
     total_action_counts = {name: 0 for name in action_names}
     position_sizes: List[int] = []
     position_change_count = 0
     position_turnover = 0
+    initial_state_none_episodes = 0
+    zero_step_episodes = 0
     with torch.no_grad():
         base_env = _unwrap_trading_env(env)
         track_positions = base_env is not None
@@ -229,12 +232,32 @@ def main() -> None:
             env.reset(seed=eval_seed, start_index=start_index)
             agent.reset_episode()
             state = env.get_state()
+            if state is None:
+                initial_state_none_episodes += 1
+                returns.append(0.0)
+                return_rates.append(0.0)
+                row = {
+                    "episode_id": episode_id,
+                    "start_index": int(env.last_start_index)
+                    if env.last_start_index is not None
+                    else int(start_index),
+                    "reward_return": 0.0,
+                    "episode_return_rate": 0.0,
+                    "episode_steps": 0,
+                }
+                if env.last_start_timestamp is not None:
+                    row["start_timestamp"] = env.last_start_timestamp
+                for name in action_names:
+                    row[f"action_count_{name}"] = 0
+                episode_rows.append(row)
+                continue
             episode_return = 0.0
             episode_action_counts = {name: 0 for name in action_names}
             episode_positions: List[int] = []
             episode_position_change_count = 0
             episode_position_turnover = 0
             previous_position_size = None
+            episode_steps = 0
 
             while state is not None:
                 action = agent.select_action(
@@ -265,17 +288,32 @@ def main() -> None:
                     previous_position_size = position_size
                 episode_return += reward.item()
                 state = env.get_state()
+                episode_steps += 1
                 if done:
                     break
 
             returns.append(episode_return)
-            episode_steps = sum(episode_action_counts.values())
+            if episode_steps == 0:
+                zero_step_episodes += 1
+            episode_return_rate = 0.0
+            if (
+                track_positions
+                and hasattr(base_env, "init_price")
+                and hasattr(base_env, "realized_pnl")
+                and hasattr(base_env, "agent_open_position_value")
+            ):
+                equity_start = float(base_env.init_price)
+                equity_end = equity_start + float(base_env.realized_pnl) + float(base_env.agent_open_position_value)
+                episode_return_rate = (equity_end / (equity_start + 1e-8)) - 1.0
+            return_rates.append(episode_return_rate)
+
             row = {
                 "episode_id": episode_id,
                 "start_index": int(env.last_start_index)
                 if env.last_start_index is not None
                 else int(start_index),
-                "episode_return": episode_return,
+                "reward_return": episode_return,
+                "episode_return_rate": episode_return_rate,
                 "episode_steps": episode_steps,
             }
             if env.last_start_timestamp is not None:
@@ -310,7 +348,8 @@ def main() -> None:
         fieldnames = ["episode_id", "start_index"]
         if include_timestamp:
             fieldnames.append("start_timestamp")
-        fieldnames.append("episode_return")
+        fieldnames.append("reward_return")
+        fieldnames.append("episode_return_rate")
         fieldnames.append("episode_steps")
         for name in action_names:
             fieldnames.append(f"action_count_{name}")
@@ -341,6 +380,14 @@ def main() -> None:
     max_return = float(np.max(returns_array)) if returns_array.size else 0.0
     p25 = float(np.percentile(returns_array, 25)) if returns_array.size else 0.0
     p75 = float(np.percentile(returns_array, 75)) if returns_array.size else 0.0
+    return_rates_array = np.array(return_rates, dtype=float)
+    mean_return_rate = float(np.mean(return_rates_array)) if return_rates_array.size else 0.0
+    std_return_rate = float(np.std(return_rates_array)) if return_rates_array.size else 0.0
+    median_return_rate = float(np.median(return_rates_array)) if return_rates_array.size else 0.0
+    mean_return_rate_pct = mean_return_rate * 100.0
+    std_return_rate_pct = std_return_rate * 100.0
+    median_return_rate_pct = median_return_rate * 100.0
+    sharpe_ratio = float(mean_return_rate / std_return_rate) if std_return_rate > 1e-12 else 0.0
     total_actions = int(sum(total_action_counts.values()))
     action_rates = {
         name: float(count / total_actions) if total_actions > 0 else 0.0
@@ -353,13 +400,20 @@ def main() -> None:
 
     summary = {
         "num_episodes": eval_cfg.num_episodes,
-        "mean_return": mean_return,
-        "std_return": std_return,
-        "median_return": median_return,
-        "min_return": min_return,
-        "max_return": max_return,
-        "p25": p25,
-        "p75": p75,
+        "mean_reward_return": mean_return,
+        "std_reward_return": std_return,
+        "median_reward_return": median_return,
+        "min_reward_return": min_return,
+        "max_reward_return": max_return,
+        "p25_reward_return": p25,
+        "p75_reward_return": p75,
+        "mean_return_rate": mean_return_rate,
+        "std_return_rate": std_return_rate,
+        "median_return_rate": median_return_rate,
+        "mean_return_rate_pct": mean_return_rate_pct,
+        "std_return_rate_pct": std_return_rate_pct,
+        "median_return_rate_pct": median_return_rate_pct,
+        "sharpe_ratio": sharpe_ratio,
         "eval_config": {
             "seed": eval_seed,
             "fixed_windows": eval_cfg.fixed_windows,
@@ -379,6 +433,8 @@ def main() -> None:
         "action_rates": action_rates,
         "action_avg_counts_per_episode": action_avg_counts,
         "action_total_steps": total_actions,
+        "initial_state_none_episodes": int(initial_state_none_episodes),
+        "zero_step_episodes": int(zero_step_episodes),
     }
     if position_sizes:
         positions_array = np.array(position_sizes, dtype=float)
@@ -403,10 +459,16 @@ def main() -> None:
     summary_path.write_text(json.dumps(summary, indent=2))
 
     logger.info(
-        "Evaluation average return over %s episodes: %.2f",
+        "Evaluation average reward_return over %s episodes: %.2f",
         eval_cfg.num_episodes,
         mean_return,
     )
+    if initial_state_none_episodes > 0 or zero_step_episodes > 0:
+        logger.warning(
+            "Eval diagnostics: initial_state_none_episodes=%s, zero_step_episodes=%s",
+            initial_state_none_episodes,
+            zero_step_episodes,
+        )
 
 
 if __name__ == "__main__":

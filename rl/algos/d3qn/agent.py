@@ -83,7 +83,8 @@ class D3QNAgent:
         return torch.as_tensor(value, device=self.device, dtype=torch.float32)
 
     def reset_episode(self) -> None:
-        self.steps_done = 0
+        # Keep global step count for epsilon decay across episodes.
+        return
 
     def select_action(
         self,

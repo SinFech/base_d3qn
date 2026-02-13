@@ -21,7 +21,10 @@ class TradingEnvironment:
         device: str = "auto",
     ) -> None:
         self.data = data
-        self.reward_f = reward if reward == "sr" else "profit"
+        valid_rewards = {"profit", "sr", "sr_enhanced"}
+        if reward not in valid_rewards:
+            raise ValueError(f"reward must be one of {sorted(valid_rewards)}")
+        self.reward_f = reward
         self.window_size = window_size
         self.trading_period = trading_period
         if max_positions is not None and max_positions < 1:
@@ -42,6 +45,12 @@ class TradingEnvironment:
         self.last_start_index: Optional[int] = None
         self.last_start_timestamp: Optional[str] = None
         self._episode_end_index: Optional[int] = None
+        # Parameters for sr_enhanced (delta rolling Sharpe reward).
+        self.sr_window = 30
+        self.sr_eps = 1e-8
+        self.sr_clip = 1.0
+        if self.sr_window < 2:
+            raise ValueError("sr_window must be >= 2 for sample std (ddof=1).")
         self.reset(start_index=self.window_size - 1)
 
     def _get_valid_start_range(self) -> Tuple[int, int]:
@@ -94,7 +103,11 @@ class TradingEnvironment:
         self.profits = [0 for _ in range(len(self.data))]
         self.agent_positions = []
         self.agent_open_position_value = 0
+        self.realized_pnl = 0.0
         self.cumulative_return = [0 for _ in range(len(self.data))]
+        self.prev_sr: Optional[float] = None
+        self.ret_hist: list[float] = []
+        self.prev_value: Optional[float] = None
         if self.trading_period is not None:
             self._episode_end_index = start_index + self.trading_period - 1
         else:
@@ -125,6 +138,7 @@ class TradingEnvironment:
                 self.agent_positions.append(current_price)
 
         sell_nothing = False
+        realized_profit_step = 0.0
         if act in {2, 3}:  # Sell (one or all depending on mode/action)
             if len(self.agent_positions) < 1:
                 sell_nothing = True
@@ -145,6 +159,7 @@ class TradingEnvironment:
                 else:
                     position = self.agent_positions.pop(0)
                     profits = current_price - position
+                realized_profit_step = profits
                 self.profits[self.t] = profits
 
         self.agent_open_position_value = 0
@@ -152,7 +167,9 @@ class TradingEnvironment:
             self.agent_open_position_value += current_price - position
             self.cumulative_return[self.t] += (position - self.init_price) / self.init_price
 
-        reward = 0
+        self.realized_pnl += realized_profit_step
+
+        reward = 0.0
         if self.reward_f == "sr":
             std_close = np.std(np.array(self.data.iloc[0 : self.t]["Close"]))
             sr = (self.agent_open_position_value + 0.024) / std_close if std_close != 0 else 0
@@ -171,7 +188,7 @@ class TradingEnvironment:
             else:
                 reward = 20
 
-        if self.reward_f == "profit":
+        elif self.reward_f == "profit":
             profit_value = self.profits[self.t]
             if profit_value > 0:
                 reward = 5
@@ -180,10 +197,38 @@ class TradingEnvironment:
             elif profit_value == 0:
                 reward = 0
 
-        if sell_nothing and (reward > -5):
-            reward = -5
-        if act == 0:
-            reward = 0.5
+        elif self.reward_f == "sr_enhanced":
+            # Portfolio value and denominator are floored to avoid undefined returns.
+            portfolio_value = max(
+                float(self.init_price + self.realized_pnl + self.agent_open_position_value),
+                self.sr_eps,
+            )
+            if self.prev_value is None:
+                rho_t = 0.0
+            else:
+                denom = max(float(self.prev_value), self.sr_eps)
+                rho_t = (portfolio_value - float(self.prev_value)) / denom
+            self.prev_value = portfolio_value
+            self.ret_hist.append(float(rho_t))
+
+            if len(self.ret_hist) < self.sr_window:
+                reward = 0.0
+            else:
+                window = np.array(self.ret_hist[-self.sr_window :], dtype=float)
+                mu = float(np.mean(window))
+                sigma = float(np.std(window, ddof=1))
+                sr_t = mu / (sigma + self.sr_eps)
+                if self.prev_sr is None:
+                    reward = 0.0
+                else:
+                    reward = sr_t - self.prev_sr
+                self.prev_sr = sr_t
+
+            if self.sr_clip is not None and self.sr_clip > 0:
+                reward = float(np.clip(reward, -self.sr_clip, self.sr_clip))
+
+        if sell_nothing:
+            reward = min(float(reward), -5.0)
         if reward < -100:
             self.done = True
 
