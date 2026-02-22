@@ -40,7 +40,7 @@ def _run_smoke(config_path: str, run_prefix: str) -> None:
 
 def main() -> None:
     _run_smoke("configs/default.yaml", "smoke_test_raw")
-    _run_smoke("configs/signature_smoke.yaml", "smoke_test_signature")
+    _run_smoke("configs/test_signature.yaml", "smoke_test_signature")
 
 
 if __name__ == "__main__":

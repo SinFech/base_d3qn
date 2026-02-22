@@ -136,8 +136,9 @@ class D3QNAgent:
             dtype=torch.bool,
         )
         nfns = [s for s in batch.next_state if s is not None]
-        non_final_next_states = torch.cat(nfns).view(len(nfns), -1)
-        non_final_next_states = non_final_next_states.unsqueeze(1)
+        non_final_next_states = None
+        if nfns:
+            non_final_next_states = torch.cat(nfns).view(len(nfns), -1).unsqueeze(1)
 
         state_batch = torch.cat(batch.state).view(self.batch_size, -1)
         state_batch = state_batch.unsqueeze(1)
@@ -146,9 +147,11 @@ class D3QNAgent:
 
         state_action_values = self.policy_net(state_batch).gather(1, action_batch)
 
-        next_state_values = torch.zeros(self.batch_size, device=self.device)
-        next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach()
-        next_state_values = next_state_values.view(self.batch_size, -1)
+        next_state_values = torch.zeros((self.batch_size, 1), device=self.device)
+        if non_final_next_states is not None:
+            with torch.no_grad():
+                next_q = self.target_net(non_final_next_states).max(1, keepdim=True)[0]
+            next_state_values[non_final_mask] = next_q
 
         expected_state_action_values = (next_state_values * self.gamma) + reward_batch
 
@@ -176,8 +179,9 @@ class D3QNAgent:
             dtype=torch.bool,
         )
         nfns = [s for s in batch.next_state if s is not None]
-        non_final_next_states = torch.cat(nfns).view(len(nfns), -1)
-        non_final_next_states = non_final_next_states.unsqueeze(1)
+        non_final_next_states = None
+        if nfns:
+            non_final_next_states = torch.cat(nfns).view(len(nfns), -1).unsqueeze(1)
 
         state_batch = torch.cat(batch.state).view(self.batch_size, -1)
         state_batch = state_batch.unsqueeze(1)
@@ -186,11 +190,12 @@ class D3QNAgent:
 
         state_action_values = self.policy_net(state_batch).gather(1, action_batch)
 
-        _, next_state_action = self.policy_net(state_batch).max(1, keepdim=True)
-
-        next_state_values = torch.zeros(self.batch_size, device=self.device).view(self.batch_size, -1)
-        out = self.target_net(non_final_next_states)
-        next_state_values[non_final_mask] = out.gather(1, next_state_action[non_final_mask])
+        next_state_values = torch.zeros((self.batch_size, 1), device=self.device)
+        if non_final_next_states is not None:
+            with torch.no_grad():
+                next_state_action = self.policy_net(non_final_next_states).argmax(dim=1, keepdim=True)
+                target_next_q = self.target_net(non_final_next_states).gather(1, next_state_action)
+            next_state_values[non_final_mask] = target_next_q
 
         expected_state_action_values = (next_state_values * self.gamma) + reward_batch
 

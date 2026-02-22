@@ -148,18 +148,32 @@ def _resolve_device(device: str) -> str:
     return device
 
 
+def _compute_start_range(
+    data_len: int,
+    window_size: int,
+    trading_period: Optional[int],
+) -> Tuple[int, int]:
+    min_start = window_size - 1
+    max_start = data_len - 1 if trading_period is None else data_len - trading_period
+    return min_start, max_start
+
+
 def _compute_fixed_eval_indices(
     data_len: int,
-    trading_period: int,
+    window_size: int,
+    trading_period: Optional[int],
     num_episodes: int,
     seed: int,
 ) -> List[int]:
     """Precompute fixed start indices for periodic eval using a local RNG."""
-    if data_len <= trading_period + 1:
-        raise ValueError("Data too short for trading_period.")
-    max_start_excl = data_len - trading_period - 1
+    min_start, max_start = _compute_start_range(data_len, window_size, trading_period)
+    if max_start < min_start:
+        raise ValueError(
+            f"Invalid start_index range [{min_start}, {max_start}] for data length {data_len} "
+            f"and trading_period {trading_period}."
+        )
     rng = np.random.default_rng(seed)
-    return rng.integers(0, max_start_excl, size=num_episodes).tolist()
+    return rng.integers(min_start, max_start + 1, size=num_episodes).tolist()
 
 
 def config_from_dict(data: Dict) -> Config:
@@ -272,6 +286,136 @@ def _unwrap_trading_env(env):
     return None
 
 
+def _evaluate_with_agent(
+    config: Config,
+    agent: D3QNAgent,
+    episodes: int,
+    epsilon: float,
+    device: str,
+    eval_seed: Optional[int] = None,
+    eval_indices: Optional[List[int]] = None,
+    eval_df=None,
+) -> Tuple[float, Dict[str, float], list]:
+    seed = eval_seed if eval_seed is not None else config.run.seed
+    seed_everything(seed)
+
+    df = _prepare_data(config) if eval_df is None else eval_df
+    min_start, max_start = _compute_start_range(
+        len(df),
+        config.env.window_size,
+        config.env.trading_period,
+    )
+    if max_start < min_start:
+        raise ValueError(
+            "Invalid start_index range "
+            f"[{min_start}, {max_start}] for data length {len(df)} "
+            f"and trading_period {config.env.trading_period}."
+        )
+
+    if eval_indices is not None:
+        if len(eval_indices) < episodes:
+            raise ValueError("eval_indices length must be >= episodes.")
+        start_indices = [int(eval_indices[i]) for i in range(episodes)]
+        for index in start_indices:
+            if not (min_start <= index <= max_start):
+                raise ValueError(
+                    "eval index must be in the range "
+                    f"[{min_start}, {max_start}] but got {index}."
+                )
+    else:
+        rng = np.random.default_rng(seed)
+        start_indices = rng.integers(min_start, max_start + 1, size=episodes).tolist()
+
+    env = make_env(
+        df,
+        config.env.reward,
+        config.env.window_size,
+        device,
+        trading_period=config.env.trading_period,
+        max_positions=config.env.max_positions,
+        sell_mode=config.env.sell_mode,
+        obs_config=config.env.obs,
+    )
+    _resolve_obs_dim(env, config)
+
+    returns: List[float] = []
+    return_rates: List[float] = []
+    cumulative_returns: List[list] = []
+    initial_state_none_episodes = 0
+    zero_step_episodes = 0
+
+    policy_was_training = agent.policy_net.training
+    target_was_training = agent.target_net.training
+    agent.policy_net.eval()
+    agent.target_net.eval()
+    try:
+        with torch.no_grad():
+            for start_index in start_indices:
+                env.reset(start_index=start_index)
+                agent.reset_episode()
+                state = env.get_state()
+                if state is None:
+                    initial_state_none_episodes += 1
+                    returns.append(0.0)
+                    cumulative_returns.append(getattr(env, "cumulative_return", []))
+                    return_rates.append(0.0)
+                    continue
+
+                episode_return = 0.0
+                episode_steps = 0
+                while state is not None:
+                    action = agent.select_action(state, training=False, epsilon_override=epsilon)
+                    reward, done, _ = env.step(action)
+                    episode_return += reward.item()
+                    state = env.get_state()
+                    episode_steps += 1
+                    if done:
+                        break
+
+                returns.append(episode_return)
+                if episode_steps == 0:
+                    zero_step_episodes += 1
+                cumulative_returns.append(env.cumulative_return)
+                episode_return_rate = 0.0
+                base_env = _unwrap_trading_env(env)
+                if (
+                    base_env is not None
+                    and hasattr(base_env, "init_price")
+                    and hasattr(base_env, "realized_pnl")
+                    and hasattr(base_env, "agent_open_position_value")
+                ):
+                    equity_start = float(base_env.init_price)
+                    equity_end = equity_start + float(base_env.realized_pnl) + float(base_env.agent_open_position_value)
+                    episode_return_rate = (equity_end / (equity_start + 1e-8)) - 1.0
+                return_rates.append(episode_return_rate)
+    finally:
+        if policy_was_training:
+            agent.policy_net.train()
+        if target_was_training:
+            agent.target_net.train()
+
+    mean_return = float(np.mean(returns)) if returns else 0.0
+    median_return = float(np.median(returns)) if returns else 0.0
+    std_return = float(np.std(returns)) if returns else 0.0
+    mean_return_rate = float(np.mean(return_rates)) if return_rates else 0.0
+    std_return_rate = float(np.std(return_rates)) if return_rates else 0.0
+    sharpe_ratio = float(mean_return_rate / std_return_rate) if std_return_rate > 1e-12 else 0.0
+    win_rate = float(np.mean(np.array(returns) > 0.0)) if returns else 0.0
+    metrics = {
+        "mean_reward_return": mean_return,
+        "median_reward_return": median_return,
+        "std_reward_return": std_return,
+        "mean_return_rate": mean_return_rate,
+        "sharpe_ratio": sharpe_ratio,
+        "win_rate": win_rate,
+        "initial_state_none_episodes": float(initial_state_none_episodes),
+        "zero_step_episodes": float(zero_step_episodes),
+        "episodes": float(episodes),
+        "epsilon": float(epsilon),
+    }
+    return mean_return, metrics, cumulative_returns
+
+
 def train(config: Config, run_paths: RunPaths) -> RunPaths:
 
     seed_everything(config.run.seed)
@@ -331,6 +475,7 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
     if eval_interval > 0 and eval_episodes > 0:
         fixed_eval_indices = _compute_fixed_eval_indices(
             len(df),
+            config.env.window_size,
             config.env.trading_period,
             eval_episodes,
             eval_seed,
@@ -417,24 +562,15 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
             )
 
         if eval_interval > 0 and eval_episodes > 0 and (episode + 1) % eval_interval == 0:
-            temp_ckpt = run_paths.checkpoints_dir / "_eval_temp.pt"
-            save_checkpoint(
-                temp_ckpt,
-                policy_state=agent.policy_net.state_dict(),
-                target_state=agent.target_net.state_dict(),
-                optimizer_state=agent.optimizer.state_dict(),
-                config=config_to_dict(config),
-                episode=episode,
-                step=total_steps,
-            )
-            _, eval_metrics, _ = evaluate(
+            _, eval_metrics, _ = _evaluate_with_agent(
                 config,
-                temp_ckpt,
-                eval_episodes,
-                0.0,
-                device,
+                agent,
+                episodes=eval_episodes,
+                epsilon=0.0,
+                device=device,
                 eval_seed=eval_seed,
                 eval_indices=fixed_eval_indices,
+                eval_df=df,
             )
             row_eval = {
                 "eval_at_episode": episode + 1,
@@ -509,11 +645,6 @@ def evaluate(
     eval_indices: Optional[List[int]] = None,
 ) -> Tuple[float, Dict[str, float], list]:
     device = _resolve_device(device)
-    if eval_indices is None:
-        seed = eval_seed if eval_seed is not None else config.run.seed
-        seed_everything(seed)
-    elif len(eval_indices) < episodes:
-        raise ValueError("eval_indices length must be >= episodes.")
 
     df = _prepare_data(config)
     dim_env = make_env(
@@ -532,85 +663,13 @@ def evaluate(
     checkpoint = load_checkpoint(checkpoint_path, device=device)
     agent.policy_net.load_state_dict(checkpoint["policy_state"])
     agent.target_net.load_state_dict(checkpoint["target_state"])
-    agent.policy_net.eval()
-
-    returns = []
-    return_rates = []
-    cumulative_returns = []
-    initial_state_none_episodes = 0
-    zero_step_episodes = 0
-    for i in range(episodes):
-        index = eval_indices[i] if eval_indices is not None else None
-        _, test_df = sample_train_test_split(
-            df,
-            trading_period=config.env.trading_period,
-            train_split=config.env.train_split,
-            index=index,
-        )
-        env = make_env(
-            test_df,
-            config.env.reward,
-            config.env.window_size,
-            device,
-            trading_period=config.env.trading_period,
-            max_positions=config.env.max_positions,
-            sell_mode=config.env.sell_mode,
-            obs_config=config.env.obs,
-        )
-        env.reset(start_index=env.window_size - 1)
-        agent.reset_episode()
-        state = env.get_state()
-        if state is None:
-            initial_state_none_episodes += 1
-            returns.append(0.0)
-            cumulative_returns.append(getattr(env, "cumulative_return", []))
-            return_rates.append(0.0)
-            continue
-        episode_return = 0.0
-        episode_steps = 0
-
-        while state is not None:
-            action = agent.select_action(state, training=False, epsilon_override=epsilon)
-            reward, done, _ = env.step(action)
-            episode_return += reward.item()
-            state = env.get_state()
-            episode_steps += 1
-            if done:
-                break
-        returns.append(episode_return)
-        if episode_steps == 0:
-            zero_step_episodes += 1
-        cumulative_returns.append(env.cumulative_return)
-        episode_return_rate = 0.0
-        base_env = _unwrap_trading_env(env)
-        if (
-            base_env is not None
-            and hasattr(base_env, "init_price")
-            and hasattr(base_env, "realized_pnl")
-            and hasattr(base_env, "agent_open_position_value")
-        ):
-            equity_start = float(base_env.init_price)
-            equity_end = equity_start + float(base_env.realized_pnl) + float(base_env.agent_open_position_value)
-            episode_return_rate = (equity_end / (equity_start + 1e-8)) - 1.0
-        return_rates.append(episode_return_rate)
-
-    mean_return = float(np.mean(returns)) if returns else 0.0
-    median_return = float(np.median(returns)) if returns else 0.0
-    std_return = float(np.std(returns)) if returns else 0.0
-    mean_return_rate = float(np.mean(return_rates)) if return_rates else 0.0
-    std_return_rate = float(np.std(return_rates)) if return_rates else 0.0
-    sharpe_ratio = float(mean_return_rate / std_return_rate) if std_return_rate > 1e-12 else 0.0
-    win_rate = float(np.mean(np.array(returns) > 0.0)) if returns else 0.0
-    metrics = {
-        "mean_reward_return": mean_return,
-        "median_reward_return": median_return,
-        "std_reward_return": std_return,
-        "mean_return_rate": mean_return_rate,
-        "sharpe_ratio": sharpe_ratio,
-        "win_rate": win_rate,
-        "initial_state_none_episodes": float(initial_state_none_episodes),
-        "zero_step_episodes": float(zero_step_episodes),
-        "episodes": float(episodes),
-        "epsilon": float(epsilon),
-    }
-    return mean_return, metrics, cumulative_returns
+    return _evaluate_with_agent(
+        config,
+        agent,
+        episodes=episodes,
+        epsilon=epsilon,
+        device=device,
+        eval_seed=eval_seed,
+        eval_indices=eval_indices,
+        eval_df=df,
+    )
