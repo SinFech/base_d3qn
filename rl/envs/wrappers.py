@@ -19,14 +19,17 @@ class SignatureObsWrapper:
         path_builder: PathBuilder,
         logsig_transformer: LogSigTransformer,
         add_position: bool = False,
+        account_feature_keys: Optional[list[str]] = None,
     ) -> None:
         self.env = env
         self.path_builder = path_builder
         self.logsig_transformer = logsig_transformer
         self.add_position = add_position
+        self.account_feature_keys = list(account_feature_keys or [])
         self.obs_dim = self.logsig_transformer.obs_dim(self.path_builder.base_dim)
         if self.add_position:
             self.obs_dim += 1
+        self.obs_dim += len(self.account_feature_keys)
 
     def reset(self, *args, **kwargs) -> Optional[np.ndarray]:
         self.env.reset(*args, **kwargs)
@@ -49,7 +52,20 @@ class SignatureObsWrapper:
             position = self._extract_position()
             if position is not None:
                 array = np.concatenate([array, np.array([position], dtype=np.float32)])
+        if self.account_feature_keys:
+            account_values = self._extract_account_features()
+            array = np.concatenate([array, account_values]).astype(np.float32, copy=False)
         return array
+
+    def _extract_account_features(self) -> np.ndarray:
+        if not hasattr(self.env, "get_account_features"):
+            return np.zeros(len(self.account_feature_keys), dtype=np.float32)
+        mapping = self.env.get_account_features()
+        values: list[float] = []
+        for key in self.account_feature_keys:
+            value = mapping.get(key, 0.0)
+            values.append(float(value))
+        return np.asarray(values, dtype=np.float32)
 
     def get_state(self) -> Optional[np.ndarray]:
         raw = self.env.get_state()

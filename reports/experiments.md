@@ -266,3 +266,46 @@ This section summarizes the shared configuration used across recent experiments.
   - Reward-logic fix removed hold-reward overwrite for non-`sr_enhanced` modes.
   - Return-rate magnitude remains high because current environment has no explicit cash/margin constraint.
 - Artifacts: runs/test_signature_sr_enhanced_a92a03/eval_summary.json, runs/test_signature_sr_enhanced_a92a03/eval_history.csv, runs/testsignatueenhanced_e8a185/eval_history.csv, runs/testsignatueenhanced_e8a185/eval_summary.json, runs/testsignatueenhanced_e8a185/eval_episodes.csv.
+
+### 2026-02-23 - Exposure Cap Sweep (Cash-Constrained D3QN)
+- Goal: Compare `max_exposure_ratio` under the capital-constrained discrete environment while keeping the legacy 3-action policy.
+- Hypothesis: `max_exposure_ratio=0.8` should balance aggressiveness and OOS robustness better than tighter/noisier alternatives.
+- Config:
+  - Env: `action_mode=discrete_capital`, `reward=sr_enhanced`, `sell_mode=all`, `initial_capital=100000`, `transaction_cost_bps=10`, `slippage_bps=2`.
+  - Data: train/eval in-sample `2014-01-01 ~ 2020-12-31`, OOS `2021-01-01 ~ 2024-02-09`.
+  - Agent: legacy D3QN structure (`conv_dueling`, hidden `[256,256]`, `action_number=3`).
+- Metrics:
+  - `d3qn_exposure06_9d1d1e`:
+    - IS: mean_reward_return `0.0113`, mean_return_rate_pct `28.71`, sharpe `0.8671`
+    - OOS: mean_reward_return `-0.0132`, mean_return_rate_pct `-20.61`, sharpe `-1.1378`
+  - `d3qn_exposure08_rerun_8864ec`:
+    - IS: mean_reward_return `0.0156`, mean_return_rate_pct `42.59`, sharpe `0.8600`
+    - OOS: mean_reward_return `-0.0069`, mean_return_rate_pct `-10.01`, sharpe `-0.3346`
+- Outcome: `max_exposure_ratio=0.8` is the best OOS baseline among available capped 3-action runs.
+- Notes: This run family is used as the control baseline for later action-space experiments.
+- Artifacts: runs/d3qn_exposure06_9d1d1e/eval_is/eval_summary.json, runs/d3qn_exposure06_9d1d1e/eval_oos/eval_summary.json, runs/d3qn_exposure08_rerun_8864ec/eval_is/eval_summary.json, runs/d3qn_exposure08_rerun_8864ec/eval_oos/eval_summary.json.
+
+### 2026-02-23 - Action Granularity Sweep at Exposure 0.8
+- Goal: Test whether finer discrete buy/sell controls improve OOS behavior under the same capital-constrained env.
+- Hypothesis: More granular actions can improve policy expressiveness, but too many actions may hurt exploration efficiency.
+- Config:
+  - Shared: `max_exposure_ratio=0.8`, `reward=sr_enhanced`, `action_mode=discrete_capital`, same data split and optimizer settings as baseline.
+  - Variants:
+    - `d3qn_exposure08_multibuy6_83d418`: hold + buy `[20,40,60,80]%` + sell_all (`action_number=6`)
+    - `d3qn_exposure08_multibuy10_2d41bb`: hold + buy `[10..80]%` + sell_all (`action_number=10`)
+    - `d3qn_exposure08_buysellportion17_d8bfa6`: hold + buy `[10..80]%` + sell `[10..80]%` (`action_number=17`)
+- Metrics:
+  - `d3qn_exposure08_multibuy6_83d418`:
+    - IS: mean_reward_return `-0.0223`, mean_return_rate_pct `231.75`, sharpe `0.7476`
+    - OOS: mean_reward_return `0.0383`, mean_return_rate_pct `-29.55`, sharpe `-1.0481`
+  - `d3qn_exposure08_multibuy10_2d41bb`:
+    - IS: mean_reward_return `-0.0212`, mean_return_rate_pct `185.95`, sharpe `0.6377`
+    - OOS: mean_reward_return `-0.0015`, mean_return_rate_pct `-22.77`, sharpe `-0.9079`
+  - `d3qn_exposure08_buysellportion17_d8bfa6`:
+    - IS: mean_reward_return `-0.0158`, mean_return_rate_pct `151.55`, sharpe `0.8468`
+    - OOS: mean_reward_return `-0.0534`, mean_return_rate_pct `-30.82`, sharpe `-0.9774`
+- Outcome: In single-seed results, expanding action space beyond 3 actions did not improve OOS robustness versus `d3qn_exposure08_rerun_8864ec`.
+- Notes:
+  - The 17-action run uses the new symmetric fractional sell support (`sell_fractions`).
+  - Action expansion increased control flexibility but also made OOS metrics more unstable/negative.
+- Artifacts: runs/d3qn_exposure08_multibuy6_83d418/eval_is/eval_summary.json, runs/d3qn_exposure08_multibuy6_83d418/eval_oos/eval_summary.json, runs/d3qn_exposure08_multibuy10_2d41bb/eval_is/eval_summary.json, runs/d3qn_exposure08_multibuy10_2d41bb/eval_oos/eval_summary.json, runs/d3qn_exposure08_buysellportion17_d8bfa6/eval_is/eval_summary.json, runs/d3qn_exposure08_buysellportion17_d8bfa6/eval_oos/eval_summary.json.

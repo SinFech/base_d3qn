@@ -34,7 +34,21 @@ class EnvConfig:
     trading_period: int = 500
     train_split: float = 0.8
     max_positions: Optional[int] = None
+    max_exposure_ratio: Optional[float] = 1.0
     sell_mode: str = "all"
+    buy_fractions: Optional[list[float]] = None
+    sell_fractions: Optional[list[float]] = None
+    action_mode: str = "discrete"
+    initial_capital: float = 100_000.0
+    transaction_cost_bps: float = 10.0
+    slippage_bps: float = 2.0
+    invalid_sell_penalty: float = 0.1
+    allow_short: bool = False
+    max_leverage: float = 1.0
+    action_low: float = 0.0
+    action_high: float = 1.0
+    min_equity_ratio: float = 0.2
+    stop_on_bankruptcy: bool = True
     obs: "ObsConfig" = field(default_factory=lambda: ObsConfig())
 
 
@@ -65,6 +79,7 @@ class SignatureObsConfig:
     backend: str = "pysiglib"
     embedding: dict = field(default_factory=lambda: {"log_price": {}, "log_return": {}})
     rolling_mean_window: int = 5
+    account_features: list[str] = field(default_factory=list)
     logsig: LogSigConfig = field(default_factory=LogSigConfig)
     torch: SignatureTorchConfig = field(default_factory=SignatureTorchConfig)
     perf: SignaturePerfConfig = field(default_factory=SignaturePerfConfig)
@@ -188,6 +203,7 @@ def config_from_dict(data: Dict) -> Config:
         backend=raw_signature.get("backend", "pysiglib"),
         embedding=raw_signature.get("embedding", {"log_price": {}, "log_return": {}}),
         rolling_mean_window=raw_signature.get("rolling_mean_window", 5),
+        account_features=raw_signature.get("account_features", []),
         logsig=LogSigConfig(**raw_logsig),
         torch=SignatureTorchConfig(**raw_signature_torch),
         perf=SignaturePerfConfig(**raw_signature_perf),
@@ -333,7 +349,22 @@ def _evaluate_with_agent(
         device,
         trading_period=config.env.trading_period,
         max_positions=config.env.max_positions,
+        max_exposure_ratio=config.env.max_exposure_ratio,
         sell_mode=config.env.sell_mode,
+        buy_fractions=config.env.buy_fractions,
+        sell_fractions=config.env.sell_fractions,
+        action_number=config.agent.action_number,
+        action_mode=config.env.action_mode,
+        initial_capital=config.env.initial_capital,
+        transaction_cost_bps=config.env.transaction_cost_bps,
+        slippage_bps=config.env.slippage_bps,
+        invalid_sell_penalty=config.env.invalid_sell_penalty,
+        allow_short=config.env.allow_short,
+        max_leverage=config.env.max_leverage,
+        action_low=config.env.action_low,
+        action_high=config.env.action_high,
+        min_equity_ratio=config.env.min_equity_ratio,
+        stop_on_bankruptcy=config.env.stop_on_bankruptcy,
         obs_config=config.env.obs,
     )
     _resolve_obs_dim(env, config)
@@ -379,6 +410,14 @@ def _evaluate_with_agent(
                 episode_return_rate = 0.0
                 base_env = _unwrap_trading_env(env)
                 if (
+                    base_env is not None
+                    and hasattr(base_env, "equity_start")
+                    and hasattr(base_env, "equity_end")
+                ):
+                    equity_start = float(base_env.equity_start)
+                    equity_end = float(base_env.equity_end)
+                    episode_return_rate = (equity_end / (equity_start + 1e-8)) - 1.0
+                elif (
                     base_env is not None
                     and hasattr(base_env, "init_price")
                     and hasattr(base_env, "realized_pnl")
@@ -437,7 +476,22 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
             config.env.window_size,
             device,
             max_positions=config.env.max_positions,
+            max_exposure_ratio=config.env.max_exposure_ratio,
             sell_mode=config.env.sell_mode,
+            buy_fractions=config.env.buy_fractions,
+            sell_fractions=config.env.sell_fractions,
+            action_number=config.agent.action_number,
+            action_mode=config.env.action_mode,
+            initial_capital=config.env.initial_capital,
+            transaction_cost_bps=config.env.transaction_cost_bps,
+            slippage_bps=config.env.slippage_bps,
+            invalid_sell_penalty=config.env.invalid_sell_penalty,
+            allow_short=config.env.allow_short,
+            max_leverage=config.env.max_leverage,
+            action_low=config.env.action_low,
+            action_high=config.env.action_high,
+            min_equity_ratio=config.env.min_equity_ratio,
+            stop_on_bankruptcy=config.env.stop_on_bankruptcy,
             obs_config=config.env.obs,
         )
 
@@ -654,7 +708,22 @@ def evaluate(
         device,
         trading_period=config.env.trading_period,
         max_positions=config.env.max_positions,
+        max_exposure_ratio=config.env.max_exposure_ratio,
         sell_mode=config.env.sell_mode,
+        buy_fractions=config.env.buy_fractions,
+        sell_fractions=config.env.sell_fractions,
+        action_number=config.agent.action_number,
+        action_mode=config.env.action_mode,
+        initial_capital=config.env.initial_capital,
+        transaction_cost_bps=config.env.transaction_cost_bps,
+        slippage_bps=config.env.slippage_bps,
+        invalid_sell_penalty=config.env.invalid_sell_penalty,
+        allow_short=config.env.allow_short,
+        max_leverage=config.env.max_leverage,
+        action_low=config.env.action_low,
+        action_high=config.env.action_high,
+        min_equity_ratio=config.env.min_equity_ratio,
+        stop_on_bankruptcy=config.env.stop_on_bankruptcy,
         obs_config=config.env.obs,
     )
     obs_dim = _resolve_obs_dim(dim_env, config)
