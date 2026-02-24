@@ -1,18 +1,27 @@
 # Base D3QN Trading
 
-Training-first refactor of a D3QN-style trading baseline.
-Core code lives in `rl/`, with CLI entrypoints in `scripts/`.
+Refactored RL trading workspace with:
+- D3QN (discrete actions)
+- PPO (continuous actions)
+- SAC (continuous actions)
+- Capital-constrained environments with explicit `cash/position/equity` accounting
+
+Core implementation lives in `rl/`; runnable entrypoints are in `scripts/`.
 
 ## Repository Structure
 
-- `rl/algos/d3qn/`: agent, schedules, trainer, replay buffer, networks.
-- `rl/envs/`: trading environment and environment builders.
-- `scripts/train.py`: training entrypoint.
-- `scripts/eval.py`: checkpoint evaluation entrypoint.
-- `configs/`: experiment configurations.
-- `runs/`: output artifacts per run.
+- `rl/algos/d3qn/`: D3QN agent, replay buffer, trainer, networks.
+- `rl/algos/ppo/`: PPO continuous policy, trainer, networks.
+- `rl/algos/sac/`: SAC continuous policy, trainer, replay buffer, networks.
+- `rl/envs/`: environment builders and env implementations:
+  - legacy discrete env
+  - `DiscreteCapitalTradingEnvironment`
+  - `ContinuousTradingEnvironment`
+- `scripts/`: train/eval CLIs for D3QN/PPO/SAC.
+- `configs/`: runnable config presets.
+- `runs/`: run artifacts.
 - `reports/`: progress and experiment logs.
-- `legacy/`: notebook-derived reference code.
+- `legacy/`: notebook-era reference code.
 
 ## Setup
 
@@ -24,87 +33,131 @@ source .venv/bin/activate
 uv sync
 ```
 
-Prefer `.venv/bin/python` for all commands.
+Use `.venv/bin/python` for commands.
+
+## Environments and Action Modes
+
+`make_env(...)` supports:
+- `action_mode=discrete`: legacy discrete env
+- `action_mode=discrete_capital`: discrete actions with capital accounting
+- `action_mode=continuous`: continuous position target with capital accounting
+
+For `discrete_capital`, you can configure:
+- `max_exposure_ratio`: cap on notional exposure ratio
+- `buy_fractions`: fractional buy actions
+- `sell_fractions`: fractional sell actions
+
+Action count rule:
+- If fractional actions are enabled:
+  - `agent.action_number = 1 + len(buy_fractions) + len(sell_fractions)`
+  - action `0` is always `hold`
+- If only `buy_fractions` is provided, one `sell_all` action is added for compatibility.
 
 ## Training
 
-Basic run:
+### D3QN (default / legacy)
 
 ```bash
-./.venv/bin/python scripts/train.py --config configs/default.yaml --run-name d3qn_profit --output-dir runs
+./.venv/bin/python scripts/train.py \
+  --config configs/default.yaml \
+  --run-name d3qn_default
 ```
 
-Signature observation example:
+### D3QN with Capital-Constrained Signature Env
 
 ```bash
-./.venv/bin/python scripts/train.py --config configs/test_signature.yaml --run-name test_signature --reward sr_enhanced --output-dir runs
+./.venv/bin/python scripts/train.py \
+  --config configs/d3qn_signature_capital.yaml \
+  --run-name d3qn_capital
 ```
 
-Useful overrides:
+### D3QN Fractional Buy/Sell Example
 
+```bash
+./.venv/bin/python scripts/train.py \
+  --config configs/d3qn_signature_capital.yaml \
+  --run-name d3qn_fractional \
+  --override env.action_mode=discrete_capital \
+  --override env.max_exposure_ratio=0.8 \
+  --override env.sell_mode=all \
+  --override env.buy_fractions='[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8]' \
+  --override env.sell_fractions='[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8]' \
+  --override agent.action_number=17
+```
+
+### PPO (continuous)
+
+```bash
+./.venv/bin/python scripts/train_ppo.py \
+  --config configs/ppo_signature.yaml \
+  --run-name ppo_continuous
+```
+
+### SAC (continuous)
+
+```bash
+./.venv/bin/python scripts/train_sac.py \
+  --config configs/sac_signature.yaml \
+  --run-name sac_continuous
+```
+
+Useful shared overrides:
 - `--reward {profit,sr,sr_enhanced}`
 - `--num-episodes`, `--total-steps`
 - `--device`
-- `--override key=value` (repeatable), for example:
-  - `--override train.eval_interval=20`
-  - `--override train.eval_episodes=50`
-
-### Training Artifacts
-
-Each run writes to `runs/<run_name>/`:
-
-- `config_resolved.yaml`: full resolved config snapshot.
-- `metrics.csv`: episode-level training metrics (`reward_return`, epsilon, loss, q).
-- `checkpoints/`: periodic and latest checkpoints.
-- `eval_history.csv`: periodic in-training eval snapshots (if enabled).
-- `run.log`: logger output.
-- `tensorboard/`: TensorBoard event files.
+- `--override key=value` (repeatable)
 
 ## Evaluation
 
-Evaluate a checkpoint:
+### D3QN
 
 ```bash
 ./.venv/bin/python scripts/eval.py \
   --config runs/<run_name>/config_resolved.yaml \
   --checkpoint runs/<run_name>/checkpoints/checkpoint_latest.pt \
-  --output-dir runs/<run_name>
+  --output-dir runs/<run_name>/eval_custom
 ```
 
-### Eval Outputs
+### PPO
 
-- `eval_summary.json`: aggregate metrics.
-- `eval_episodes.csv`: per-episode rows (when `eval.save_per_episode=true`).
+```bash
+./.venv/bin/python scripts/eval_ppo.py \
+  --config runs/<run_name>/config_resolved.yaml \
+  --checkpoint runs/<run_name>/checkpoints/checkpoint_latest.pt \
+  --output-dir runs/<run_name>/eval_custom
+```
 
-Key metric naming:
+### SAC
 
-- `reward_return`: sum of step rewards over one episode.
-- `return_rate`: portfolio return computed as `(equity_end / equity_start) - 1`.
-- `*_pct` fields in `eval_summary.json`: percentage version of return rates.
-- `win_rate`: ratio of episodes with positive `reward_return` (reward-based win rate).
+```bash
+./.venv/bin/python scripts/eval_sac.py \
+  --config runs/<run_name>/config_resolved.yaml \
+  --checkpoint runs/<run_name>/checkpoints/checkpoint_latest.pt \
+  --output-dir runs/<run_name>/eval_custom
+```
 
-Diagnostics:
+## Run Artifacts
 
-- `initial_state_none_episodes`
-- `zero_step_episodes`
+Each run under `runs/<run_name>/` typically contains:
+- `config_resolved.yaml`
+- `metrics.csv`
+- `checkpoints/`
+- `run.log`
+- `tensorboard/`
+- `eval_summary.json`, `eval_episodes.csv` (after eval)
 
-These help detect evaluation loops that fail to run steps.
+## Metric Conventions
 
-## Recent Behavioral Notes
-
-- `sr_enhanced` reward is supported end-to-end (`train.py`, `eval.py`, env).
-- Epsilon now decays linearly over global environment steps (not reset each episode).
-- In-training periodic eval uses fixed windows by seed and logs to `eval_history.csv`.
-- `trainer.evaluate()` and `scripts/eval.py` now use consistent `trading_period` handling.
+- `reward_return`: episode sum of environment rewards.
+- `return_rate`: `(equity_end / equity_start) - 1`.
+- `*_pct`: percentage representation of return-rate metrics.
+- diagnostics include:
+  - `initial_state_none_episodes`
+  - `zero_step_episodes`
 
 ## Reports
 
 - Progress timeline: `reports/progress.md`
-- Experiment metrics log: `reports/experiments.md`
+- Experiment records: `reports/experiments.md`
 
-Update both when adding new training/evaluation changes.
-
-## Legacy and Notebooks
-
-`legacy/` keeps notebook-era reference code.
-Use `rl/` + `scripts/` for current experiments and reproducible runs.
+Update both when changing training logic or running new experiment batches.
