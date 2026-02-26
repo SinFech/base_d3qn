@@ -26,6 +26,13 @@ class DiscreteCapitalTradingEnvironment:
         transaction_cost_bps: float = 10.0,
         slippage_bps: float = 2.0,
         invalid_sell_penalty: float = 0.1,
+        blocked_trade_penalty: float = 0.0,
+        min_hold_steps: int = 0,
+        trade_cooldown_steps: int = 0,
+        dynamic_exposure_enabled: bool = False,
+        dynamic_exposure_vol_window: int = 30,
+        dynamic_exposure_min_scale: float = 0.5,
+        dynamic_exposure_strength: float = 1.0,
         min_equity_ratio: float = 0.2,
         stop_on_bankruptcy: bool = True,
         device: str = "auto",
@@ -88,6 +95,25 @@ class DiscreteCapitalTradingEnvironment:
         self.invalid_sell_penalty = float(invalid_sell_penalty)
         if self.invalid_sell_penalty < 0:
             raise ValueError("invalid_sell_penalty must be >= 0.")
+        self.blocked_trade_penalty = float(blocked_trade_penalty)
+        if self.blocked_trade_penalty < 0:
+            raise ValueError("blocked_trade_penalty must be >= 0.")
+        self.min_hold_steps = int(min_hold_steps)
+        if self.min_hold_steps < 0:
+            raise ValueError("min_hold_steps must be >= 0.")
+        self.trade_cooldown_steps = int(trade_cooldown_steps)
+        if self.trade_cooldown_steps < 0:
+            raise ValueError("trade_cooldown_steps must be >= 0.")
+        self.dynamic_exposure_enabled = bool(dynamic_exposure_enabled and self.max_exposure_ratio is not None)
+        self.dynamic_exposure_vol_window = int(dynamic_exposure_vol_window)
+        if self.dynamic_exposure_vol_window < 2:
+            raise ValueError("dynamic_exposure_vol_window must be >= 2.")
+        self.dynamic_exposure_min_scale = float(dynamic_exposure_min_scale)
+        if not (0.0 < self.dynamic_exposure_min_scale <= 1.0):
+            raise ValueError("dynamic_exposure_min_scale must be in (0, 1].")
+        self.dynamic_exposure_strength = float(dynamic_exposure_strength)
+        if self.dynamic_exposure_strength < 0.0:
+            raise ValueError("dynamic_exposure_strength must be >= 0.")
         self.min_equity_ratio = float(min_equity_ratio)
         if not (0.0 < self.min_equity_ratio <= 1.0):
             raise ValueError("min_equity_ratio must be in (0, 1].")
@@ -105,6 +131,10 @@ class DiscreteCapitalTradingEnvironment:
         self.sr_window = 30
         self.sr_eps = 1e-8
         self.sr_clip = 1.0
+        close_values = np.asarray(self.data["Close"], dtype=float)
+        self._rolling_vol = self._build_rolling_vol(close_values, self.dynamic_exposure_vol_window)
+        valid_vol = self._rolling_vol[np.isfinite(self._rolling_vol) & (self._rolling_vol > self.sr_eps)]
+        self.dynamic_exposure_ref_vol = float(np.median(valid_vol)) if valid_vol.size > 0 else 0.0
         self.reset(start_index=self.window_size - 1)
 
     @staticmethod
@@ -120,6 +150,32 @@ class DiscreteCapitalTradingEnvironment:
         if not normalized:
             raise ValueError(f"{name} must not be an empty list when provided.")
         return normalized
+
+    @staticmethod
+    def _build_rolling_vol(close_values: np.ndarray, window: int) -> np.ndarray:
+        clipped = np.clip(np.asarray(close_values, dtype=float), 1e-12, None)
+        log_prices = np.log(clipped)
+        log_returns = np.diff(log_prices, prepend=log_prices[0])
+        vol = pd.Series(log_returns).rolling(window=window, min_periods=2).std(ddof=0).to_numpy(dtype=float)
+        return np.nan_to_num(vol, nan=0.0, posinf=0.0, neginf=0.0)
+
+    def _effective_max_exposure_ratio(self) -> Optional[float]:
+        if self.max_exposure_ratio is None:
+            return None
+        if not self.dynamic_exposure_enabled:
+            return self.max_exposure_ratio
+        index = min(max(self.t, 0), len(self._rolling_vol) - 1)
+        current_vol = float(self._rolling_vol[index])
+        ref_vol = float(self.dynamic_exposure_ref_vol)
+        if current_vol <= self.sr_eps or ref_vol <= self.sr_eps:
+            return self.max_exposure_ratio
+        vol_ratio = current_vol / ref_vol
+        if vol_ratio <= 1.0:
+            scale = 1.0
+        else:
+            scale = 1.0 / (1.0 + self.dynamic_exposure_strength * (vol_ratio - 1.0))
+        scale = float(np.clip(scale, self.dynamic_exposure_min_scale, 1.0))
+        return float(self.max_exposure_ratio * scale)
 
     def _get_valid_start_range(self) -> Tuple[int, int]:
         min_start = self.window_size - 1
@@ -158,8 +214,8 @@ class DiscreteCapitalTradingEnvironment:
 
         max_by_cash = max(0.0, self.cash / unit_cash_cost)
         max_by_exposure = float("inf")
-        if self.max_exposure_ratio is not None:
-            ratio = self.max_exposure_ratio
+        ratio = self._effective_max_exposure_ratio()
+        if ratio is not None:
             position_qty = self._position_units()
             numerator = ratio * self.cash - (1.0 - ratio) * position_qty * current_price
             denominator = (1.0 - ratio) * current_price + ratio * unit_cash_cost
@@ -273,6 +329,9 @@ class DiscreteCapitalTradingEnvironment:
         self.cumulative_return = [0.0 for _ in range(len(self.data))]
         self.prev_sr: Optional[float] = None
         self.ret_hist: list[float] = []
+        self.episode_step = 0
+        self.cooldown_remaining = 0
+        self.last_buy_step: Optional[int] = None
 
         self.init_price = self._current_price()
         self.equity_start = float(self.initial_capital)
@@ -290,12 +349,21 @@ class DiscreteCapitalTradingEnvironment:
     def get_account_features(self) -> dict[str, float]:
         price = self._current_price()
         equity = max(self._equity(price), self.sr_eps)
+        holding_age = 0.0
+        if self.last_buy_step is not None:
+            holding_age = float(max(0, self.episode_step - self.last_buy_step))
+        effective_max_exposure_ratio = self._effective_max_exposure_ratio()
         return {
             "cash_ratio": float(self.cash / equity),
             "position_ratio": float(self._position_value(price) / equity),
             "equity_return": float((equity / self.equity_start) - 1.0),
             "last_action": float(self.last_action),
             "turnover_ratio": float(self.total_turnover / max(self.equity_start, self.sr_eps)),
+            "effective_max_exposure_ratio": float(
+                effective_max_exposure_ratio if effective_max_exposure_ratio is not None else 0.0
+            ),
+            "cooldown_remaining": float(self.cooldown_remaining),
+            "holding_age": holding_age,
         }
 
     def _reward_from_step_return(self, step_return: float, realized_profit_step: float) -> float:
@@ -349,7 +417,12 @@ class DiscreteCapitalTradingEnvironment:
             )
 
         sell_nothing = False
+        blocked_trade = False
+        trade_executed = False
         realized_profit_step = 0.0
+        blocked_by_cooldown = self.cooldown_remaining > 0
+        if blocked_by_cooldown:
+            self.cooldown_remaining -= 1
 
         buy_fraction: Optional[float] = None
         sell_fraction: Optional[float] = None
@@ -368,41 +441,84 @@ class DiscreteCapitalTradingEnvironment:
                 is_sell_action = True
 
         if buy_fraction is not None:
-            max_buy_qty = self._max_buy_quantity(current_price)
-            if max_buy_qty > self.sr_eps:
-                if self.buy_fractions:
-                    buy_qty = max_buy_qty * buy_fraction
-                else:
-                    buy_qty = 1.0 if max_buy_qty >= (1.0 - 1e-12) else 0.0
-                self._execute_buy(current_price, min(buy_qty, max_buy_qty))
+            if blocked_by_cooldown:
+                blocked_trade = True
+            else:
+                position_before = self._position_units()
+                max_buy_qty = self._max_buy_quantity(current_price)
+                if max_buy_qty > self.sr_eps:
+                    if self.buy_fractions:
+                        buy_qty = max_buy_qty * buy_fraction
+                    else:
+                        buy_qty = 1.0 if max_buy_qty >= (1.0 - 1e-12) else 0.0
+                    self._execute_buy(current_price, min(buy_qty, max_buy_qty))
+                position_after = self._position_units()
+                if position_after > position_before + self.sr_eps:
+                    trade_executed = True
+                    self.last_buy_step = self.episode_step
 
         elif sell_fraction is not None:
-            if self._position_units() <= self.sr_eps:
+            if blocked_by_cooldown:
+                blocked_trade = True
+            elif self._position_units() <= self.sr_eps:
                 sell_nothing = True
             else:
-                sell_qty = self._position_units() * float(sell_fraction)
-                realized_profit_step = self._execute_sell(current_price, sell_qty)
-                self.profits[self.t] = realized_profit_step
+                if self.min_hold_steps > 0 and self.last_buy_step is not None:
+                    hold_duration = self.episode_step - self.last_buy_step
+                    if hold_duration < self.min_hold_steps:
+                        blocked_trade = True
+                if blocked_trade:
+                    pass
+                else:
+                    position_before = self._position_units()
+                    sell_qty = position_before * float(sell_fraction)
+                    realized_profit_step = self._execute_sell(current_price, sell_qty)
+                    self.profits[self.t] = realized_profit_step
+                    position_after = self._position_units()
+                    if position_after < position_before - self.sr_eps:
+                        trade_executed = True
+                    if position_after <= self.sr_eps:
+                        self.last_buy_step = None
 
         elif is_sell_action:
-            if self._position_units() <= self.sr_eps:
+            if blocked_by_cooldown:
+                blocked_trade = True
+            elif self._position_units() <= self.sr_eps:
                 sell_nothing = True
             else:
-                sell_all = False
-                if act == 2:
-                    sell_all = self.sell_mode in {"all", "all_cap"}
-                elif act == 3:
-                    if self.sell_mode == "one_plus":
-                        sell_all = True
-                    else:
-                        sell_all = self.sell_mode in {"all", "all_cap"}
-
-                if sell_all:
-                    sell_qty = self._position_units()
+                if self.min_hold_steps > 0 and self.last_buy_step is not None:
+                    hold_duration = self.episode_step - self.last_buy_step
+                    if hold_duration < self.min_hold_steps:
+                        blocked_trade = True
+                if blocked_trade:
+                    pass
                 else:
-                    sell_qty = min(1.0, self._position_units())
-                realized_profit_step = self._execute_sell(current_price, sell_qty)
-                self.profits[self.t] = realized_profit_step
+                    sell_all = False
+                    if act == 2:
+                        sell_all = self.sell_mode in {"all", "all_cap"}
+                    elif act == 3:
+                        if self.sell_mode == "one_plus":
+                            sell_all = True
+                        else:
+                            sell_all = self.sell_mode in {"all", "all_cap"}
+
+                    position_before = self._position_units()
+                    if sell_all:
+                        sell_qty = position_before
+                    else:
+                        sell_qty = min(1.0, position_before)
+                    realized_profit_step = self._execute_sell(current_price, sell_qty)
+                    self.profits[self.t] = realized_profit_step
+                    position_after = self._position_units()
+                    if position_after < position_before - self.sr_eps:
+                        trade_executed = True
+                    if position_after <= self.sr_eps:
+                        self.last_buy_step = None
+
+        if trade_executed and self.trade_cooldown_steps > 0:
+            self.cooldown_remaining = self.trade_cooldown_steps
+        if self._position_units() <= self.sr_eps:
+            self.last_buy_step = None
 
         self.last_action = float(act)
         self.agent_open_position_value = float(
@@ -416,8 +532,11 @@ class DiscreteCapitalTradingEnvironment:
         reward = self._reward_from_step_return(step_return, realized_profit_step)
         if sell_nothing and self.invalid_sell_penalty > 0:
             reward = min(float(reward), -self.invalid_sell_penalty)
+        if blocked_trade and self.blocked_trade_penalty > 0:
+            reward = float(reward) - self.blocked_trade_penalty
         self.prev_equity = post_equity
         self.cumulative_return[self.t] = (post_equity / max(self.equity_start, self.sr_eps)) - 1.0
+        self.episode_step += 1
 
         if self.stop_on_bankruptcy and post_equity <= self.equity_start * self.min_equity_ratio:
             self.done = True

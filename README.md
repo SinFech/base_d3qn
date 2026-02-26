@@ -1,31 +1,59 @@
-# Base D3QN Trading
+# Base D3QN Trading (Capital-Aware RL Research Workspace)
 
-Refactored RL trading workspace with:
+This repository is a reproducible RL trading research workspace with three algorithms on a shared market pipeline:
 - D3QN (discrete actions)
 - PPO (continuous actions)
 - SAC (continuous actions)
-- Capital-constrained environments with explicit `cash/position/equity` accounting
 
-Core implementation lives in `rl/`; runnable entrypoints are in `scripts/`.
+## What Changed (Current Phase)
 
-## Repository Structure
+The current branch consolidates the project from legacy notebook behavior into a capital-aware and risk-controlled research stack.
+
+1. Capital-aware environment
+- Added explicit `cash / position / equity` accounting to trading environments.
+- Added transaction cost and slippage handling at each trade.
+- Added optional bankruptcy guard via `min_equity_ratio` and `stop_on_bankruptcy`.
+
+2. D3QN stability upgrades
+- Added Prioritized Experience Replay (PER): `per_enabled`, `per_alpha`, `per_beta_start`, `per_beta_steps`, `per_eps`.
+- Added n-step TD targets: `n_step` support in agent and trainer.
+- Fixed truncation handling: time-limit episode boundaries are no longer forced as terminal in n-step flushing.
+
+3. Discrete action-space upgrades (capital mode)
+- Added fractional buy/sell actions through `buy_fractions` and `sell_fractions`.
+- Added exposure-based control with `max_exposure_ratio`.
+- Added risk-control hooks:
+  - `blocked_trade_penalty`
+  - `min_hold_steps`
+  - `trade_cooldown_steps`
+  - `dynamic_exposure_enabled`
+  - `dynamic_exposure_vol_window`
+  - `dynamic_exposure_min_scale`
+  - `dynamic_exposure_strength`
+
+4. Cross-algo benchmark support
+- Added PPO and SAC training/evaluation scripts on the same data and environment pipeline.
+- Added standardized IS/OOS evaluation outputs in run directories.
+
+5. Tooling and quality
+- Added backtest tear sheet generator: `scripts/backtest_report.py`.
+- Added test entrypoint: `scripts/test.py`.
+- Added D3QN PER+n-step behavior tests under `tests/d3qn/`.
+
+## Repository Layout
 
 - `rl/algos/d3qn/`: D3QN agent, replay buffer, trainer, networks.
-- `rl/algos/ppo/`: PPO continuous policy, trainer, networks.
-- `rl/algos/sac/`: SAC continuous policy, trainer, replay buffer, networks.
-- `rl/envs/`: environment builders and env implementations:
-  - legacy discrete env
-  - `DiscreteCapitalTradingEnvironment`
-  - `ContinuousTradingEnvironment`
-- `scripts/`: train/eval CLIs for D3QN/PPO/SAC.
-- `configs/`: runnable config presets.
-- `runs/`: run artifacts.
+- `rl/algos/ppo/`: PPO trainer/networks.
+- `rl/algos/sac/`: SAC trainer/networks/replay.
+- `rl/envs/`: trading environments and builders.
+- `configs/`: reproducible config presets.
+- `scripts/`: training/evaluation/report/testing entrypoints.
+- `runs/`: curated run artifacts.
 - `reports/`: progress and experiment logs.
-- `legacy/`: notebook-era reference code.
 
 ## Setup
 
-Use Python 3.10+ and `uv`:
+Python 3.10+ and `uv`:
 
 ```bash
 uv venv .venv
@@ -33,29 +61,11 @@ source .venv/bin/activate
 uv sync
 ```
 
-Use `.venv/bin/python` for commands.
+Use `.venv/bin/python` for all commands.
 
-## Environments and Action Modes
+## Key Training Commands
 
-`make_env(...)` supports:
-- `action_mode=discrete`: legacy discrete env
-- `action_mode=discrete_capital`: discrete actions with capital accounting
-- `action_mode=continuous`: continuous position target with capital accounting
-
-For `discrete_capital`, you can configure:
-- `max_exposure_ratio`: cap on notional exposure ratio
-- `buy_fractions`: fractional buy actions
-- `sell_fractions`: fractional sell actions
-
-Action count rule:
-- If fractional actions are enabled:
-  - `agent.action_number = 1 + len(buy_fractions) + len(sell_fractions)`
-  - action `0` is always `hold`
-- If only `buy_fractions` is provided, one `sell_all` action is added for compatibility.
-
-## Training
-
-### D3QN (default / legacy)
+D3QN legacy baseline:
 
 ```bash
 ./.venv/bin/python scripts/train.py \
@@ -63,29 +73,15 @@ Action count rule:
   --run-name d3qn_default
 ```
 
-### D3QN with Capital-Constrained Signature Env
+D3QN capital-aware (6-action stable config, PER+n-step enabled):
 
 ```bash
 ./.venv/bin/python scripts/train.py \
-  --config configs/d3qn_signature_capital.yaml \
-  --run-name d3qn_capital
+  --config configs/d3qn_signature_capital_6act_stable.yaml \
+  --run-name d3qn_capital_6act_stable
 ```
 
-### D3QN Fractional Buy/Sell Example
-
-```bash
-./.venv/bin/python scripts/train.py \
-  --config configs/d3qn_signature_capital.yaml \
-  --run-name d3qn_fractional \
-  --override env.action_mode=discrete_capital \
-  --override env.max_exposure_ratio=0.8 \
-  --override env.sell_mode=all \
-  --override env.buy_fractions='[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8]' \
-  --override env.sell_fractions='[0.1,0.2,0.3,0.4,0.5,0.6,0.7,0.8]' \
-  --override agent.action_number=17
-```
-
-### PPO (continuous)
+PPO:
 
 ```bash
 ./.venv/bin/python scripts/train_ppo.py \
@@ -93,7 +89,7 @@ Action count rule:
   --run-name ppo_continuous
 ```
 
-### SAC (continuous)
+SAC:
 
 ```bash
 ./.venv/bin/python scripts/train_sac.py \
@@ -101,15 +97,9 @@ Action count rule:
   --run-name sac_continuous
 ```
 
-Useful shared overrides:
-- `--reward {profit,sr,sr_enhanced}`
-- `--num-episodes`, `--total-steps`
-- `--device`
-- `--override key=value` (repeatable)
-
 ## Evaluation
 
-### D3QN
+D3QN:
 
 ```bash
 ./.venv/bin/python scripts/eval.py \
@@ -118,7 +108,7 @@ Useful shared overrides:
   --output-dir runs/<run_name>/eval_custom
 ```
 
-### PPO
+PPO:
 
 ```bash
 ./.venv/bin/python scripts/eval_ppo.py \
@@ -127,7 +117,7 @@ Useful shared overrides:
   --output-dir runs/<run_name>/eval_custom
 ```
 
-### SAC
+SAC:
 
 ```bash
 ./.venv/bin/python scripts/eval_sac.py \
@@ -136,28 +126,26 @@ Useful shared overrides:
   --output-dir runs/<run_name>/eval_custom
 ```
 
-## Run Artifacts
+## Backtest Tear Sheet
 
-Each run under `runs/<run_name>/` typically contains:
-- `config_resolved.yaml`
-- `metrics.csv`
-- `checkpoints/`
-- `run.log`
-- `tensorboard/`
-- `eval_summary.json`, `eval_episodes.csv` (after eval)
+```bash
+./.venv/bin/python scripts/backtest_report.py \
+  --checkpoint runs/<run_name>/checkpoints/checkpoint_latest.pt \
+  --output-dir runs/<run_name>/tear_sheet
+```
 
-## Metric Conventions
+## Tests
 
-- `reward_return`: episode sum of environment rewards.
-- `return_rate`: `(equity_end / equity_start) - 1`.
-- `*_pct`: percentage representation of return-rate metrics.
-- diagnostics include:
-  - `initial_state_none_episodes`
-  - `zero_step_episodes`
+```bash
+./.venv/bin/python scripts/test.py
+```
 
-## Reports
+## Active Curated Runs
+
+The `runs/` directory has been curated to keep only key comparison runs used in current reports.
+See `reports/experiments.md` for metric tables and interpretation.
+
+## Reporting
 
 - Progress timeline: `reports/progress.md`
-- Experiment records: `reports/experiments.md`
-
-Update both when changing training logic or running new experiment batches.
+- Quantitative experiment log: `reports/experiments.md`

@@ -39,6 +39,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--transaction-cost-bps", type=float, default=None)
     parser.add_argument("--slippage-bps", type=float, default=None)
     parser.add_argument("--invalid-sell-penalty", type=float, default=None)
+    parser.add_argument("--blocked-trade-penalty", type=float, default=None)
+    parser.add_argument("--min-hold-steps", type=int, default=None)
+    parser.add_argument("--trade-cooldown-steps", type=int, default=None)
+    parser.add_argument("--dynamic-exposure-enabled", type=int, default=None, choices=[0, 1])
+    parser.add_argument("--dynamic-exposure-vol-window", type=int, default=None)
+    parser.add_argument("--dynamic-exposure-min-scale", type=float, default=None)
+    parser.add_argument("--dynamic-exposure-strength", type=float, default=None)
     parser.add_argument("--action-low", type=float, default=None)
     parser.add_argument("--action-high", type=float, default=None)
     parser.add_argument("--output-dir", type=str, default=None)
@@ -200,6 +207,20 @@ def main() -> None:
         config.env.slippage_bps = args.slippage_bps
     if args.invalid_sell_penalty is not None:
         config.env.invalid_sell_penalty = args.invalid_sell_penalty
+    if args.blocked_trade_penalty is not None:
+        config.env.blocked_trade_penalty = args.blocked_trade_penalty
+    if args.min_hold_steps is not None:
+        config.env.min_hold_steps = args.min_hold_steps
+    if args.trade_cooldown_steps is not None:
+        config.env.trade_cooldown_steps = args.trade_cooldown_steps
+    if args.dynamic_exposure_enabled is not None:
+        config.env.dynamic_exposure_enabled = bool(args.dynamic_exposure_enabled)
+    if args.dynamic_exposure_vol_window is not None:
+        config.env.dynamic_exposure_vol_window = args.dynamic_exposure_vol_window
+    if args.dynamic_exposure_min_scale is not None:
+        config.env.dynamic_exposure_min_scale = args.dynamic_exposure_min_scale
+    if args.dynamic_exposure_strength is not None:
+        config.env.dynamic_exposure_strength = args.dynamic_exposure_strength
     if args.action_low is not None:
         config.env.action_low = args.action_low
     if args.action_high is not None:
@@ -278,6 +299,13 @@ def main() -> None:
         transaction_cost_bps=config.env.transaction_cost_bps,
         slippage_bps=config.env.slippage_bps,
         invalid_sell_penalty=config.env.invalid_sell_penalty,
+        blocked_trade_penalty=getattr(config.env, "blocked_trade_penalty", 0.0),
+        min_hold_steps=getattr(config.env, "min_hold_steps", 0),
+        trade_cooldown_steps=getattr(config.env, "trade_cooldown_steps", 0),
+        dynamic_exposure_enabled=getattr(config.env, "dynamic_exposure_enabled", False),
+        dynamic_exposure_vol_window=getattr(config.env, "dynamic_exposure_vol_window", 30),
+        dynamic_exposure_min_scale=getattr(config.env, "dynamic_exposure_min_scale", 0.5),
+        dynamic_exposure_strength=getattr(config.env, "dynamic_exposure_strength", 1.0),
         allow_short=config.env.allow_short,
         max_leverage=config.env.max_leverage,
         action_low=config.env.action_low,

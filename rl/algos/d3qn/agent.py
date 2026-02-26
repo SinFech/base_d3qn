@@ -1,15 +1,16 @@
 from __future__ import annotations
 
+from collections import deque
 import random
-from typing import Optional, Tuple
+from typing import Deque, Optional, Tuple
 
 import numpy as np
 import torch
 import torch.optim as optim
 
-from rl.algos.d3qn.losses import mse_q_loss
+from rl.algos.d3qn.losses import mse_q_loss, weighted_huber_q_loss
 from rl.algos.d3qn.networks import build_q_network
-from rl.algos.d3qn.replay_buffer import ReplayBuffer, Transition
+from rl.algos.d3qn.replay_buffer import PrioritizedReplayBuffer, ReplayBuffer, Transition
 from rl.algos.d3qn.schedules import EpsilonSchedule
 
 
@@ -30,8 +31,17 @@ class D3QNAgent:
         target_update: int = 5,
         model: str = "ddqn",
         double: bool = True,
+        per_enabled: bool = False,
+        per_alpha: float = 0.6,
+        per_beta_start: float = 0.4,
+        per_beta_steps: int = 100000,
+        per_eps: float = 1e-6,
+        n_step: int = 1,
         device: str = "auto",
     ) -> None:
+        if n_step < 1:
+            raise ValueError("n_step must be >= 1.")
+
         self.replay_mem_size = replay_mem_size
         self.batch_size = batch_size
         self.gamma = gamma
@@ -46,6 +56,13 @@ class D3QNAgent:
         self.target_update = target_update
         self.model = model
         self.double = double
+        self.per_enabled = per_enabled
+        self.per_alpha = per_alpha
+        self.per_beta_start = per_beta_start
+        self.per_beta_steps = max(int(per_beta_steps), 1)
+        self.per_eps = per_eps
+        self.n_step = int(n_step)
+        self.n_step_discount = self.gamma ** self.n_step
         self.training = True
 
         self.device = (
@@ -70,9 +87,14 @@ class D3QNAgent:
         self.target_net.eval()
 
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=self.learning_rate)
-        self.memory = ReplayBuffer(self.replay_mem_size)
+        if self.per_enabled:
+            self.memory = PrioritizedReplayBuffer(self.replay_mem_size, alpha=self.per_alpha)
+        else:
+            self.memory = ReplayBuffer(self.replay_mem_size)
         self.epsilon_schedule = EpsilonSchedule(self.eps_start, self.eps_end, self.eps_steps)
+        self.n_step_buffer: Deque[Transition] = deque()
         self.steps_done = 0
+        self.optimize_steps = 0
         self.last_epsilon = self.eps_start
 
     def _as_tensor(self, value: Optional[torch.Tensor | np.ndarray]) -> Optional[torch.Tensor]:
@@ -82,9 +104,25 @@ class D3QNAgent:
             return value.to(device=self.device, dtype=torch.float32)
         return torch.as_tensor(value, device=self.device, dtype=torch.float32)
 
+    def _as_action_tensor(self, action: torch.Tensor | int) -> torch.Tensor:
+        if isinstance(action, torch.Tensor):
+            return action.to(device=self.device, dtype=torch.long).view(-1)
+        return torch.tensor([int(action)], device=self.device, dtype=torch.long)
+
+    def _as_reward_tensor(self, reward: torch.Tensor | float) -> torch.Tensor:
+        if isinstance(reward, torch.Tensor):
+            return reward.to(device=self.device, dtype=torch.float32).view(-1)
+        return torch.tensor([float(reward)], device=self.device, dtype=torch.float32)
+
+    def _as_done_tensor(self, done: torch.Tensor | bool) -> torch.Tensor:
+        if isinstance(done, torch.Tensor):
+            return done.to(device=self.device, dtype=torch.float32).view(-1)
+        return torch.tensor([1.0 if bool(done) else 0.0], device=self.device, dtype=torch.float32)
+
     def reset_episode(self) -> None:
-        # Keep global step count for epsilon decay across episodes.
-        return
+        if self.n_step > 1 and self.n_step_buffer:
+            # Carry over truncated tails with bootstrap targets instead of forcing terminal.
+            self.finalize_episode(force_terminal=False)
 
     def select_action(
         self,
@@ -112,37 +150,103 @@ class D3QNAgent:
                 return torch.tensor([self.policy_net(state).argmax()], device=self.device, dtype=torch.long)
         return torch.tensor([random.randrange(self.action_number)], device=self.device, dtype=torch.long)
 
-    def store_transition(self, state, action, next_state, reward) -> None:
-        self.memory.push(
+    def _build_n_step_transition(self, force_terminal: bool = False) -> Transition:
+        if not self.n_step_buffer:
+            raise ValueError("n_step_buffer is empty.")
+
+        first = self.n_step_buffer[0]
+        reward_n = torch.zeros_like(first.reward)
+        next_state_n = first.next_state
+        done_n = torch.zeros_like(first.done)
+
+        for idx, transition in enumerate(self.n_step_buffer):
+            reward_n = reward_n + (self.gamma ** idx) * transition.reward
+            next_state_n = transition.next_state
+            done_n = transition.done
+
+            reached_n = idx + 1 >= self.n_step
+            terminated = bool(transition.done.item() > 0.5) or transition.next_state is None
+            if reached_n or terminated:
+                break
+
+        if force_terminal:
+            next_state_n = None
+            done_n = torch.ones_like(done_n)
+        return Transition(first.state, first.action, next_state_n, reward_n, done_n)
+
+    def _push_n_step_transition(self, force_terminal: bool = False) -> None:
+        transition = self._build_n_step_transition(force_terminal=force_terminal)
+        self.memory.push(*transition)
+        self.n_step_buffer.popleft()
+
+    def store_transition(self, state, action, next_state, reward, done: bool = False) -> None:
+        transition = Transition(
             self._as_tensor(state),
-            action,
+            self._as_action_tensor(action),
             self._as_tensor(next_state),
-            self._as_tensor(reward),
+            self._as_reward_tensor(reward),
+            self._as_done_tensor(done),
         )
+
+        if self.n_step == 1:
+            self.memory.push(*transition)
+            return
+
+        self.n_step_buffer.append(transition)
+        if len(self.n_step_buffer) >= self.n_step:
+            self._push_n_step_transition()
+        if bool(done):
+            while self.n_step_buffer:
+                self._push_n_step_transition()
+
+    def finalize_episode(self, force_terminal: bool = True) -> None:
+        if self.n_step == 1:
+            return
+        while self.n_step_buffer:
+            self._push_n_step_transition(force_terminal=force_terminal)
 
     def update_target(self) -> None:
         self.target_net.load_state_dict(self.policy_net.state_dict())
 
-    def optimize(self) -> Optional[Tuple[float, float]]:
+    def _current_per_beta(self) -> float:
+        if not self.per_enabled:
+            return 1.0
+        frac = min(1.0, self.optimize_steps / float(self.per_beta_steps))
+        return self.per_beta_start + frac * (1.0 - self.per_beta_start)
+
+    def _optimize_impl(self, use_double_dqn: bool) -> Optional[Tuple[float, float]]:
         if len(self.memory) < self.batch_size:
             return None
 
-        transitions = self.memory.sample(self.batch_size)
+        per_indices = None
+        per_weights = torch.ones((self.batch_size, 1), device=self.device, dtype=torch.float32)
+        if self.per_enabled:
+            beta = self._current_per_beta()
+            transitions, per_indices, weights = self.memory.sample(self.batch_size, beta=beta)
+            per_weights = torch.as_tensor(weights, device=self.device, dtype=torch.float32).view(self.batch_size, 1)
+        else:
+            transitions = self.memory.sample(self.batch_size)
+
         batch = Transition(*zip(*transitions))
 
-        non_final_mask = torch.tensor(
-            tuple(map(lambda s: s is not None, batch.next_state)),
-            device=self.device,
-            dtype=torch.bool,
-        )
-        nfns = [s for s in batch.next_state if s is not None]
+        nfns = []
+        non_final_indices = []
+        done_batch = torch.cat(batch.done).view(self.batch_size, -1)
+        for i, next_state in enumerate(batch.next_state):
+            if next_state is None:
+                continue
+            if bool(done_batch[i].item() > 0.5):
+                continue
+            nfns.append(next_state)
+            non_final_indices.append(i)
+
         non_final_next_states = None
         if nfns:
             non_final_next_states = torch.cat(nfns).view(len(nfns), -1).unsqueeze(1)
 
         state_batch = torch.cat(batch.state).view(self.batch_size, -1)
         state_batch = state_batch.unsqueeze(1)
-        action_batch = torch.cat(batch.action).view(self.batch_size, -1)
+        action_batch = torch.cat(batch.action).view(self.batch_size, -1).long()
         reward_batch = torch.cat(batch.reward).view(self.batch_size, -1)
 
         state_action_values = self.policy_net(state_batch).gather(1, action_batch)
@@ -150,12 +254,22 @@ class D3QNAgent:
         next_state_values = torch.zeros((self.batch_size, 1), device=self.device)
         if non_final_next_states is not None:
             with torch.no_grad():
-                next_q = self.target_net(non_final_next_states).max(1, keepdim=True)[0]
-            next_state_values[non_final_mask] = next_q
+                if use_double_dqn:
+                    next_state_action = self.policy_net(non_final_next_states).argmax(dim=1, keepdim=True)
+                    target_next_q = self.target_net(non_final_next_states).gather(1, next_state_action)
+                else:
+                    target_next_q = self.target_net(non_final_next_states).max(1, keepdim=True)[0]
+            next_state_values[non_final_indices] = target_next_q
 
-        expected_state_action_values = (next_state_values * self.gamma) + reward_batch
+        expected_state_action_values = reward_batch + (
+            (1.0 - done_batch) * self.n_step_discount * next_state_values
+        )
+        td_errors = expected_state_action_values - state_action_values
 
-        loss = mse_q_loss(state_action_values, expected_state_action_values)
+        if self.per_enabled:
+            loss = weighted_huber_q_loss(state_action_values, expected_state_action_values, per_weights)
+        else:
+            loss = mse_q_loss(state_action_values, expected_state_action_values)
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -164,48 +278,15 @@ class D3QNAgent:
                 param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
+        if self.per_enabled and per_indices is not None:
+            priorities = td_errors.detach().abs().view(-1).cpu().numpy() + self.per_eps
+            self.memory.update_priorities(per_indices, priorities)
+
+        self.optimize_steps += 1
         return loss.item(), state_action_values.detach().mean().item()
+
+    def optimize(self) -> Optional[Tuple[float, float]]:
+        return self._optimize_impl(use_double_dqn=False)
 
     def optimize_double_dqn(self) -> Optional[Tuple[float, float]]:
-        if len(self.memory) < self.batch_size:
-            return None
-
-        transitions = self.memory.sample(self.batch_size)
-        batch = Transition(*zip(*transitions))
-
-        non_final_mask = torch.tensor(
-            tuple(map(lambda s: s is not None, batch.next_state)),
-            device=self.device,
-            dtype=torch.bool,
-        )
-        nfns = [s for s in batch.next_state if s is not None]
-        non_final_next_states = None
-        if nfns:
-            non_final_next_states = torch.cat(nfns).view(len(nfns), -1).unsqueeze(1)
-
-        state_batch = torch.cat(batch.state).view(self.batch_size, -1)
-        state_batch = state_batch.unsqueeze(1)
-        action_batch = torch.cat(batch.action).view(self.batch_size, -1)
-        reward_batch = torch.cat(batch.reward).view(self.batch_size, -1)
-
-        state_action_values = self.policy_net(state_batch).gather(1, action_batch)
-
-        next_state_values = torch.zeros((self.batch_size, 1), device=self.device)
-        if non_final_next_states is not None:
-            with torch.no_grad():
-                next_state_action = self.policy_net(non_final_next_states).argmax(dim=1, keepdim=True)
-                target_next_q = self.target_net(non_final_next_states).gather(1, next_state_action)
-            next_state_values[non_final_mask] = target_next_q
-
-        expected_state_action_values = (next_state_values * self.gamma) + reward_batch
-
-        loss = mse_q_loss(state_action_values, expected_state_action_values)
-
-        self.optimizer.zero_grad()
-        loss.backward()
-        for param in self.policy_net.parameters():
-            if param.grad is not None:
-                param.grad.data.clamp_(-1, 1)
-        self.optimizer.step()
-
-        return loss.item(), state_action_values.detach().mean().item()
+        return self._optimize_impl(use_double_dqn=True)

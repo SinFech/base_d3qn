@@ -43,6 +43,13 @@ class EnvConfig:
     transaction_cost_bps: float = 10.0
     slippage_bps: float = 2.0
     invalid_sell_penalty: float = 0.1
+    blocked_trade_penalty: float = 0.0
+    min_hold_steps: int = 0
+    trade_cooldown_steps: int = 0
+    dynamic_exposure_enabled: bool = False
+    dynamic_exposure_vol_window: int = 30
+    dynamic_exposure_min_scale: float = 0.5
+    dynamic_exposure_strength: float = 1.0
     allow_short: bool = False
     max_leverage: float = 1.0
     action_low: float = 0.0
@@ -106,6 +113,12 @@ class AgentConfig:
     target_update: int = 5
     model: str = "ddqn"
     double: bool = True
+    per_enabled: bool = False
+    per_alpha: float = 0.6
+    per_beta_start: float = 0.4
+    per_beta_steps: int = 100000
+    per_eps: float = 1e-6
+    n_step: int = 1
 
 
 @dataclass
@@ -262,6 +275,12 @@ def build_agent(config: Config, device: str, input_dim: Optional[int] = None) ->
         model=config.model.type,
         hidden_sizes=config.model.hidden_sizes,
         double=config.agent.double,
+        per_enabled=config.agent.per_enabled,
+        per_alpha=config.agent.per_alpha,
+        per_beta_start=config.agent.per_beta_start,
+        per_beta_steps=config.agent.per_beta_steps,
+        per_eps=config.agent.per_eps,
+        n_step=config.agent.n_step,
         device=device,
     )
 
@@ -359,6 +378,13 @@ def _evaluate_with_agent(
         transaction_cost_bps=config.env.transaction_cost_bps,
         slippage_bps=config.env.slippage_bps,
         invalid_sell_penalty=config.env.invalid_sell_penalty,
+        blocked_trade_penalty=config.env.blocked_trade_penalty,
+        min_hold_steps=config.env.min_hold_steps,
+        trade_cooldown_steps=config.env.trade_cooldown_steps,
+        dynamic_exposure_enabled=config.env.dynamic_exposure_enabled,
+        dynamic_exposure_vol_window=config.env.dynamic_exposure_vol_window,
+        dynamic_exposure_min_scale=config.env.dynamic_exposure_min_scale,
+        dynamic_exposure_strength=config.env.dynamic_exposure_strength,
         allow_short=config.env.allow_short,
         max_leverage=config.env.max_leverage,
         action_low=config.env.action_low,
@@ -486,6 +512,13 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
             transaction_cost_bps=config.env.transaction_cost_bps,
             slippage_bps=config.env.slippage_bps,
             invalid_sell_penalty=config.env.invalid_sell_penalty,
+            blocked_trade_penalty=config.env.blocked_trade_penalty,
+            min_hold_steps=config.env.min_hold_steps,
+            trade_cooldown_steps=config.env.trade_cooldown_steps,
+            dynamic_exposure_enabled=config.env.dynamic_exposure_enabled,
+            dynamic_exposure_vol_window=config.env.dynamic_exposure_vol_window,
+            dynamic_exposure_min_scale=config.env.dynamic_exposure_min_scale,
+            dynamic_exposure_strength=config.env.dynamic_exposure_strength,
             allow_short=config.env.allow_short,
             max_leverage=config.env.max_leverage,
             action_low=config.env.action_low,
@@ -548,13 +581,14 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
         losses = []
         q_values = []
         steps = 0
+        episode_done = False
 
         while state is not None:
             action = agent.select_action(state, training=True)
             reward, done, _ = env.step(action)
             reward_return += reward.item()
             next_state = env.get_state()
-            agent.store_transition(state, action, next_state, reward)
+            agent.store_transition(state, action, next_state, reward, done=done)
 
             if agent.double:
                 result = agent.optimize_double_dqn()
@@ -575,7 +609,12 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
             if config.train.max_steps_per_episode and steps >= config.train.max_steps_per_episode:
                 break
             if done:
+                episode_done = True
                 break
+
+        if not episode_done:
+            # Time-limit truncation should keep bootstrap targets for n-step returns.
+            agent.finalize_episode(force_terminal=False)
 
         if episode % agent.target_update == 0:
             agent.update_target()
@@ -718,6 +757,13 @@ def evaluate(
         transaction_cost_bps=config.env.transaction_cost_bps,
         slippage_bps=config.env.slippage_bps,
         invalid_sell_penalty=config.env.invalid_sell_penalty,
+        blocked_trade_penalty=config.env.blocked_trade_penalty,
+        min_hold_steps=config.env.min_hold_steps,
+        trade_cooldown_steps=config.env.trade_cooldown_steps,
+        dynamic_exposure_enabled=config.env.dynamic_exposure_enabled,
+        dynamic_exposure_vol_window=config.env.dynamic_exposure_vol_window,
+        dynamic_exposure_min_scale=config.env.dynamic_exposure_min_scale,
+        dynamic_exposure_strength=config.env.dynamic_exposure_strength,
         allow_short=config.env.allow_short,
         max_leverage=config.env.max_leverage,
         action_low=config.env.action_low,
