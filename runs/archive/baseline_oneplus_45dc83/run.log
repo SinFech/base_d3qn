@@ -1,0 +1,8 @@
+2026-01-22 05:09:38 | INFO | Logging dir: runs/baseline_oneplus_45dc83
+2026-01-22 05:10:00 | INFO | Episode 10/50 | return 2134.50 | epsilon 0.020 | avg_loss 37.8589 | avg_q 8.8940
+2026-01-22 05:10:19 | INFO | Episode 20/50 | return 664.50 | epsilon 0.020 | avg_loss 42.4630 | avg_q 29.1663
+2026-01-22 05:10:39 | INFO | Episode 30/50 | return 1362.50 | epsilon 0.020 | avg_loss 71.0432 | avg_q 46.9473
+2026-01-22 05:10:59 | INFO | Episode 40/50 | return 1389.50 | epsilon 0.020 | avg_loss 99.1340 | avg_q 56.7301
+2026-01-22 05:11:19 | INFO | Episode 50/50 | return 2269.50 | epsilon 0.020 | avg_loss 114.1426 | avg_q 80.1540
+2026-01-22 05:11:19 | INFO | Run artifacts saved to runs/baseline_oneplus_45dc83
+2026-01-22 05:28:45 | INFO | Evaluation average return over 50 episodes: 2496.81

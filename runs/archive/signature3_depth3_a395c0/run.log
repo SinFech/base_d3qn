@@ -1,0 +1,8 @@
+2026-01-21 03:11:55 | INFO | Logging dir: runs/signature3_depth3_a395c0
+2026-01-21 03:12:19 | INFO | Episode 10/50 | return 2295.00 | epsilon 0.020 | avg_loss 50.6589 | avg_q 24.2450
+2026-01-21 03:12:42 | INFO | Episode 20/50 | return 2217.00 | epsilon 0.020 | avg_loss 65.5303 | avg_q 41.6578
+2026-01-21 03:13:06 | INFO | Episode 30/50 | return 2520.50 | epsilon 0.020 | avg_loss 93.9687 | avg_q 55.4867
+2026-01-21 03:13:29 | INFO | Episode 40/50 | return 2477.00 | epsilon 0.020 | avg_loss 126.8968 | avg_q 73.3643
+2026-01-21 03:13:52 | INFO | Episode 50/50 | return 2526.50 | epsilon 0.020 | avg_loss 170.3114 | avg_q 91.0926
+2026-01-21 03:13:52 | INFO | Run artifacts saved to runs/signature3_depth3_a395c0
+2026-01-21 03:17:50 | INFO | Evaluation average return over 50 episodes: 2204.74

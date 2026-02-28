@@ -1,0 +1,33 @@
+2026-02-22 20:13:36 | INFO | Logging dir: runs/sig_pos_state_f1c8c1
+2026-02-22 20:14:01 | INFO | Episode 10/200 | reward_return 775.00 | epsilon 0.881 | avg_loss 23.2298 | avg_q 6.4026
+2026-02-22 20:14:24 | INFO | Episode 20/200 | reward_return 405.00 | epsilon 0.762 | avg_loss 49.7702 | avg_q 16.5168
+2026-02-22 20:15:36 | INFO | Eval at episode 20 | mean_reward_return 2850.20 | mean_return_rate 1419.08% | sharpe_ratio 0.6775 | win_rate 1.00
+2026-02-22 20:16:01 | INFO | Episode 30/200 | reward_return 2125.00 | epsilon 0.050 | avg_loss 92.9016 | avg_q 29.8170
+2026-02-22 20:16:26 | INFO | Episode 40/200 | reward_return 1405.00 | epsilon 0.050 | avg_loss 129.4380 | avg_q 45.3245
+2026-02-22 20:17:37 | INFO | Eval at episode 40 | mean_reward_return 2912.50 | mean_return_rate 1426.34% | sharpe_ratio 0.7255 | win_rate 1.00
+2026-02-22 20:18:02 | INFO | Episode 50/200 | reward_return 2960.00 | epsilon 0.050 | avg_loss 152.4018 | avg_q 55.8020
+2026-02-22 20:18:26 | INFO | Episode 60/200 | reward_return 3270.00 | epsilon 0.050 | avg_loss 160.3722 | avg_q 64.0356
+2026-02-22 20:19:38 | INFO | Eval at episode 60 | mean_reward_return 2889.50 | mean_return_rate 1283.54% | sharpe_ratio 0.6779 | win_rate 1.00
+2026-02-22 20:20:03 | INFO | Episode 70/200 | reward_return 2680.00 | epsilon 0.050 | avg_loss 156.7509 | avg_q 76.7079
+2026-02-22 20:20:27 | INFO | Episode 80/200 | reward_return 2660.00 | epsilon 0.050 | avg_loss 179.7932 | avg_q 89.2832
+2026-02-22 20:21:38 | INFO | Eval at episode 80 | mean_reward_return 2998.90 | mean_return_rate 1458.81% | sharpe_ratio 0.6843 | win_rate 1.00
+2026-02-22 20:22:03 | INFO | Episode 90/200 | reward_return 2455.00 | epsilon 0.050 | avg_loss 202.0499 | avg_q 98.7939
+2026-02-22 20:22:28 | INFO | Episode 100/200 | reward_return 2520.00 | epsilon 0.050 | avg_loss 229.4204 | avg_q 105.2386
+2026-02-22 20:23:39 | INFO | Eval at episode 100 | mean_reward_return 2918.40 | mean_return_rate 1295.45% | sharpe_ratio 0.6703 | win_rate 1.00
+2026-02-22 20:24:03 | INFO | Episode 110/200 | reward_return 2180.00 | epsilon 0.050 | avg_loss 268.4990 | avg_q 117.1884
+2026-02-22 20:24:28 | INFO | Episode 120/200 | reward_return 1880.00 | epsilon 0.050 | avg_loss 313.2852 | avg_q 129.8444
+2026-02-22 20:25:39 | INFO | Eval at episode 120 | mean_reward_return 2993.10 | mean_return_rate 1434.70% | sharpe_ratio 0.7067 | win_rate 1.00
+2026-02-22 20:26:04 | INFO | Episode 130/200 | reward_return 2050.00 | epsilon 0.050 | avg_loss 263.2572 | avg_q 136.9279
+2026-02-22 20:26:29 | INFO | Episode 140/200 | reward_return 3080.00 | epsilon 0.050 | avg_loss 316.3089 | avg_q 150.0251
+2026-02-22 20:27:40 | INFO | Eval at episode 140 | mean_reward_return 2937.10 | mean_return_rate 1609.96% | sharpe_ratio 0.6760 | win_rate 1.00
+2026-02-22 20:28:05 | INFO | Episode 150/200 | reward_return 1760.00 | epsilon 0.050 | avg_loss 409.7461 | avg_q 171.4782
+2026-02-22 20:28:30 | INFO | Episode 160/200 | reward_return 3330.00 | epsilon 0.050 | avg_loss 356.6837 | avg_q 174.4983
+2026-02-22 20:29:41 | INFO | Eval at episode 160 | mean_reward_return 3222.90 | mean_return_rate 1585.88% | sharpe_ratio 0.7446 | win_rate 1.00
+2026-02-22 20:30:06 | INFO | Episode 170/200 | reward_return 1745.00 | epsilon 0.050 | avg_loss 402.7830 | avg_q 177.4458
+2026-02-22 20:30:31 | INFO | Episode 180/200 | reward_return 3220.00 | epsilon 0.050 | avg_loss 311.3356 | avg_q 180.5817
+2026-02-22 20:31:42 | INFO | Eval at episode 180 | mean_reward_return 3021.30 | mean_return_rate 1497.19% | sharpe_ratio 0.6904 | win_rate 1.00
+2026-02-22 20:32:07 | INFO | Episode 190/200 | reward_return 1760.00 | epsilon 0.050 | avg_loss 297.8507 | avg_q 180.8005
+2026-02-22 20:32:32 | INFO | Episode 200/200 | reward_return 3280.00 | epsilon 0.050 | avg_loss 255.7992 | avg_q 184.7233
+2026-02-22 20:33:43 | INFO | Eval at episode 200 | mean_reward_return 3062.30 | mean_return_rate 1348.56% | sharpe_ratio 0.6826 | win_rate 1.00
+2026-02-22 20:33:43 | INFO | Eval history written to runs/sig_pos_state_f1c8c1/eval_history.csv
+2026-02-22 20:33:43 | INFO | Run artifacts saved to runs/sig_pos_state_f1c8c1

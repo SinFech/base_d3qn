@@ -1,0 +1,8 @@
+2026-01-22 04:13:14 | INFO | Logging dir: runs/sig3_pr_allcap_fcf68f
+2026-01-22 04:14:40 | INFO | Episode 10/50 | return 350.50 | epsilon 0.020 | avg_loss 53.1348 | avg_q 20.4440
+2026-01-22 04:15:34 | INFO | Episode 20/50 | return 2328.00 | epsilon 0.020 | avg_loss 64.9908 | avg_q 34.1200
+2026-01-22 04:15:56 | INFO | Episode 30/50 | return 2611.50 | epsilon 0.020 | avg_loss 74.3259 | avg_q 52.6630
+2026-01-22 04:16:19 | INFO | Episode 40/50 | return 2415.50 | epsilon 0.020 | avg_loss 95.3417 | avg_q 68.0360
+2026-01-22 04:16:41 | INFO | Episode 50/50 | return 2024.50 | epsilon 0.020 | avg_loss 123.7209 | avg_q 82.6958
+2026-01-22 04:16:41 | INFO | Run artifacts saved to runs/sig3_pr_allcap_fcf68f
+2026-01-22 04:37:32 | INFO | Evaluation average return over 50 episodes: 3763.48

@@ -1,0 +1,8 @@
+2026-01-21 03:09:57 | INFO | Logging dir: runs/signature2_depth2_0d5526
+2026-01-21 03:10:21 | INFO | Episode 10/50 | return 2338.50 | epsilon 0.020 | avg_loss 58.5550 | avg_q 24.2688
+2026-01-21 03:10:44 | INFO | Episode 20/50 | return 2275.50 | epsilon 0.020 | avg_loss 82.7127 | avg_q 41.2002
+2026-01-21 03:11:07 | INFO | Episode 30/50 | return 2559.50 | epsilon 0.020 | avg_loss 112.5463 | avg_q 56.4547
+2026-01-21 03:11:30 | INFO | Episode 40/50 | return 2453.00 | epsilon 0.020 | avg_loss 161.2181 | avg_q 77.9339
+2026-01-21 03:11:53 | INFO | Episode 50/50 | return 2507.00 | epsilon 0.020 | avg_loss 220.2674 | avg_q 95.7543
+2026-01-21 03:11:53 | INFO | Run artifacts saved to runs/signature2_depth2_0d5526
+2026-01-21 03:14:57 | INFO | Evaluation average return over 50 episodes: 1895.11

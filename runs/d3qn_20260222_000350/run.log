@@ -1,0 +1,33 @@
+2026-02-22 00:03:50 | INFO | Logging dir: runs/d3qn_20260222_000350
+2026-02-22 00:04:44 | INFO | Episode 10/200 | reward_return 785.00 | epsilon 0.881 | avg_loss 37.3605 | avg_q 5.9919
+2026-02-22 00:05:38 | INFO | Episode 20/200 | reward_return -195.00 | epsilon 0.762 | avg_loss 63.5402 | avg_q 9.9619
+2026-02-22 00:08:35 | INFO | Eval at episode 20 | mean_reward_return 1766.00 | mean_return_rate 1539.02% | sharpe_ratio 0.6640 | win_rate 0.62
+2026-02-22 00:09:33 | INFO | Episode 30/200 | reward_return 120.00 | epsilon 0.050 | avg_loss 160.3326 | avg_q 20.0188
+2026-02-22 00:10:30 | INFO | Episode 40/200 | reward_return 2065.00 | epsilon 0.050 | avg_loss 231.2747 | avg_q 36.8497
+2026-02-22 00:13:30 | INFO | Eval at episode 40 | mean_reward_return 3493.70 | mean_return_rate 1448.06% | sharpe_ratio 0.6338 | win_rate 0.80
+2026-02-22 00:14:27 | INFO | Episode 50/200 | reward_return 3610.00 | epsilon 0.050 | avg_loss 275.5830 | avg_q 49.4098
+2026-02-22 00:15:24 | INFO | Episode 60/200 | reward_return 7340.00 | epsilon 0.050 | avg_loss 304.2764 | avg_q 59.7394
+2026-02-22 00:18:22 | INFO | Eval at episode 60 | mean_reward_return 4347.80 | mean_return_rate 1225.63% | sharpe_ratio 0.6306 | win_rate 1.00
+2026-02-22 00:19:20 | INFO | Episode 70/200 | reward_return 2660.00 | epsilon 0.050 | avg_loss 322.8650 | avg_q 67.5264
+2026-02-22 00:20:18 | INFO | Episode 80/200 | reward_return 5650.00 | epsilon 0.050 | avg_loss 390.6117 | avg_q 85.5145
+2026-02-22 00:23:16 | INFO | Eval at episode 80 | mean_reward_return 4309.00 | mean_return_rate 1346.12% | sharpe_ratio 0.6710 | win_rate 0.98
+2026-02-22 00:24:13 | INFO | Episode 90/200 | reward_return 4185.00 | epsilon 0.050 | avg_loss 439.8720 | avg_q 104.6378
+2026-02-22 00:25:12 | INFO | Episode 100/200 | reward_return 4985.00 | epsilon 0.050 | avg_loss 652.4767 | avg_q 127.0559
+2026-02-22 00:28:10 | INFO | Eval at episode 100 | mean_reward_return 4439.60 | mean_return_rate 1414.84% | sharpe_ratio 0.6817 | win_rate 0.98
+2026-02-22 00:29:08 | INFO | Episode 110/200 | reward_return 945.00 | epsilon 0.050 | avg_loss 668.0510 | avg_q 144.0527
+2026-02-22 00:30:05 | INFO | Episode 120/200 | reward_return 550.00 | epsilon 0.050 | avg_loss 829.3243 | avg_q 155.4055
+2026-02-22 00:33:02 | INFO | Eval at episode 120 | mean_reward_return 4632.10 | mean_return_rate 1392.61% | sharpe_ratio 0.6685 | win_rate 1.00
+2026-02-22 00:34:00 | INFO | Episode 130/200 | reward_return 5685.00 | epsilon 0.050 | avg_loss 796.7055 | avg_q 172.8865
+2026-02-22 00:34:58 | INFO | Episode 140/200 | reward_return 2540.00 | epsilon 0.050 | avg_loss 1001.4209 | avg_q 171.9606
+2026-02-22 00:37:56 | INFO | Eval at episode 140 | mean_reward_return 3652.30 | mean_return_rate 1367.35% | sharpe_ratio 0.6842 | win_rate 0.92
+2026-02-22 00:38:54 | INFO | Episode 150/200 | reward_return 110.00 | epsilon 0.050 | avg_loss 1091.1889 | avg_q 186.6484
+2026-02-22 00:39:52 | INFO | Episode 160/200 | reward_return 4645.00 | epsilon 0.050 | avg_loss 1068.6406 | avg_q 195.6434
+2026-02-22 00:42:52 | INFO | Eval at episode 160 | mean_reward_return 2549.70 | mean_return_rate 1262.89% | sharpe_ratio 0.6413 | win_rate 0.94
+2026-02-22 00:43:51 | INFO | Episode 170/200 | reward_return 295.00 | epsilon 0.050 | avg_loss 1427.6526 | avg_q 201.0819
+2026-02-22 00:44:49 | INFO | Episode 180/200 | reward_return 6560.00 | epsilon 0.050 | avg_loss 1406.2172 | avg_q 211.1256
+2026-02-22 00:47:55 | INFO | Eval at episode 180 | mean_reward_return 4398.90 | mean_return_rate 1244.36% | sharpe_ratio 0.6230 | win_rate 1.00
+2026-02-22 00:48:54 | INFO | Episode 190/200 | reward_return 590.00 | epsilon 0.050 | avg_loss 1506.4400 | avg_q 202.7795
+2026-02-22 00:49:53 | INFO | Episode 200/200 | reward_return 6605.00 | epsilon 0.050 | avg_loss 1469.9402 | avg_q 206.9218
+2026-02-22 00:53:19 | INFO | Eval at episode 200 | mean_reward_return 4137.70 | mean_return_rate 1237.70% | sharpe_ratio 0.6089 | win_rate 0.98
+2026-02-22 00:53:19 | INFO | Eval history written to runs/d3qn_20260222_000350/eval_history.csv
+2026-02-22 00:53:19 | INFO | Run artifacts saved to runs/d3qn_20260222_000350

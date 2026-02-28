@@ -1,0 +1,8 @@
+2026-01-22 04:05:16 | INFO | Logging dir: runs/sig2_meanvol_allcap_33e912
+2026-01-22 04:05:56 | INFO | Episode 10/50 | return 1120.50 | epsilon 0.020 | avg_loss 36.5152 | avg_q 16.7716
+2026-01-22 04:07:43 | INFO | Episode 20/50 | return 1497.00 | epsilon 0.020 | avg_loss 44.7288 | avg_q 25.4022
+2026-01-22 04:09:36 | INFO | Episode 30/50 | return 1508.00 | epsilon 0.020 | avg_loss 61.7315 | avg_q 36.7541
+2026-01-22 04:11:27 | INFO | Episode 40/50 | return 1500.00 | epsilon 0.020 | avg_loss 82.9752 | avg_q 47.2035
+2026-01-22 04:13:12 | INFO | Episode 50/50 | return 1252.50 | epsilon 0.020 | avg_loss 110.7221 | avg_q 54.9419
+2026-01-22 04:13:12 | INFO | Run artifacts saved to runs/sig2_meanvol_allcap_33e912
+2026-01-22 04:34:24 | INFO | Evaluation average return over 50 episodes: 1533.37

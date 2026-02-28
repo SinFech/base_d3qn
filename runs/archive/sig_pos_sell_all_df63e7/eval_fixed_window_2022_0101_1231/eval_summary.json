@@ -1,0 +1,68 @@
+{
+  "num_episodes": 1,
+  "mean_reward_return": 1585.0,
+  "std_reward_return": 0.0,
+  "median_reward_return": 1585.0,
+  "min_reward_return": 1585.0,
+  "max_reward_return": 1585.0,
+  "p25_reward_return": 1585.0,
+  "p75_reward_return": 1585.0,
+  "mean_return_rate": -1.8048684149706482,
+  "std_return_rate": 0.0,
+  "median_return_rate": -1.8048684149706482,
+  "mean_return_rate_pct": -180.48684149706483,
+  "std_return_rate_pct": 0.0,
+  "median_return_rate_pct": -180.48684149706483,
+  "sharpe_ratio": 0.0,
+  "eval_config": {
+    "seed": 20240101,
+    "fixed_windows": true,
+    "fixed_windows_seed": 20240101,
+    "epsilon": 0.0,
+    "save_per_episode": true
+  },
+  "window_size": 24,
+  "trading_period": 365,
+  "data_range": {
+    "start_date": "2021-12-09",
+    "end_date": "2022-12-31"
+  },
+  "data_len": 388,
+  "start_indices": [
+    23
+  ],
+  "action_counts": {
+    "hold": 95,
+    "buy": 220,
+    "sell": 49
+  },
+  "action_rates": {
+    "hold": 0.260989010989011,
+    "buy": 0.6043956043956044,
+    "sell": 0.1346153846153846
+  },
+  "action_avg_counts_per_episode": {
+    "hold": 95.0,
+    "buy": 220.0,
+    "sell": 49.0
+  },
+  "action_total_steps": 364,
+  "initial_state_none_episodes": 0,
+  "zero_step_episodes": 0,
+  "position_stats": {
+    "mean": 2.239010989010989,
+    "std": 2.248446376894355,
+    "median": 1.0,
+    "min": 0,
+    "max": 5,
+    "p25": 0.0,
+    "p75": 5.0,
+    "zero_rate": 0.3956043956043956,
+    "steps": 364,
+    "change_count": 142,
+    "turnover": 182.0
+  },
+  "start_timestamps": [
+    "2022-01-01T00:00:00"
+  ]
+}

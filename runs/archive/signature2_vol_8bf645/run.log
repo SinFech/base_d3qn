@@ -1,0 +1,8 @@
+2026-01-21 07:00:28 | INFO | Logging dir: runs/signature2_vol_8bf645
+2026-01-21 07:00:54 | INFO | Episode 10/50 | return 2334.00 | epsilon 0.020 | avg_loss 53.3781 | avg_q 24.3755
+2026-01-21 07:01:18 | INFO | Episode 20/50 | return 2250.50 | epsilon 0.020 | avg_loss 72.5541 | avg_q 41.9262
+2026-01-21 07:01:43 | INFO | Episode 30/50 | return 2540.00 | epsilon 0.020 | avg_loss 104.8425 | avg_q 57.1706
+2026-01-21 07:02:07 | INFO | Episode 40/50 | return 2472.00 | epsilon 0.020 | avg_loss 129.0751 | avg_q 73.1523
+2026-01-21 07:02:31 | INFO | Episode 50/50 | return 2541.00 | epsilon 0.020 | avg_loss 157.9794 | avg_q 86.1556
+2026-01-21 07:02:31 | INFO | Run artifacts saved to runs/signature2_vol_8bf645
+2026-01-21 07:10:11 | INFO | Evaluation average return over 50 episodes: 1932.22

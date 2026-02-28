@@ -1,0 +1,24 @@
+2026-02-22 21:51:42 | INFO | Logging dir: runs/ppo_continuous_cpu_1c4d96
+2026-02-22 21:51:45 | INFO | Episode 10/200 | reward_return 0.0295 | return_rate -41.37% | avg_policy_loss 0.0055 | avg_value_loss 0.0092 | avg_entropy 0.3907 | avg_kl 0.01576
+2026-02-22 21:51:49 | INFO | Episode 20/200 | reward_return -0.0580 | return_rate 136.11% | avg_policy_loss -0.0051 | avg_value_loss 0.0119 | avg_entropy 0.3855 | avg_kl 0.00026
+2026-02-22 21:51:52 | INFO | Episode 30/200 | reward_return -0.1205 | return_rate 5.18% | avg_policy_loss -0.0004 | avg_value_loss 0.0101 | avg_entropy 0.3753 | avg_kl 0.00301
+2026-02-22 21:51:55 | INFO | Episode 40/200 | reward_return 0.6530 | return_rate -4.63% | avg_policy_loss -0.0049 | avg_value_loss 0.0116 | avg_entropy 0.3798 | avg_kl 0.00728
+2026-02-22 21:51:58 | INFO | Episode 50/200 | reward_return -0.0458 | return_rate 10.75% | avg_policy_loss 0.0111 | avg_value_loss 0.0107 | avg_entropy 0.3809 | avg_kl 0.01578
+2026-02-22 21:52:01 | INFO | Episode 60/200 | reward_return 0.3831 | return_rate -16.82% | avg_policy_loss -0.0072 | avg_value_loss 0.0115 | avg_entropy 0.3697 | avg_kl 0.00142
+2026-02-22 21:52:04 | INFO | Episode 70/200 | reward_return 0.2306 | return_rate 37.10% | avg_policy_loss -0.0028 | avg_value_loss 0.0189 | avg_entropy 0.3595 | avg_kl 0.00215
+2026-02-22 21:52:07 | INFO | Episode 80/200 | reward_return 0.3730 | return_rate 14.73% | avg_policy_loss -0.0063 | avg_value_loss 0.0089 | avg_entropy 0.3545 | avg_kl 0.00623
+2026-02-22 21:52:10 | INFO | Episode 90/200 | reward_return 0.0903 | return_rate 22.09% | avg_policy_loss -0.0092 | avg_value_loss 0.0126 | avg_entropy 0.3568 | avg_kl 0.00103
+2026-02-22 21:52:13 | INFO | Episode 100/200 | reward_return 0.4820 | return_rate -23.10% | avg_policy_loss -0.0003 | avg_value_loss 0.0100 | avg_entropy 0.3434 | avg_kl 0.00265
+2026-02-22 21:52:16 | INFO | Episode 110/200 | reward_return -0.1069 | return_rate 18.47% | avg_policy_loss -0.0095 | avg_value_loss 0.0164 | avg_entropy 0.3350 | avg_kl 0.00594
+2026-02-22 21:52:19 | INFO | Episode 120/200 | reward_return -0.2771 | return_rate 2.99% | avg_policy_loss -0.0057 | avg_value_loss 0.0098 | avg_entropy 0.3468 | avg_kl 0.01332
+2026-02-22 21:52:21 | INFO | Episode 130/200 | reward_return -0.2312 | return_rate 27.27% | avg_policy_loss -0.0078 | avg_value_loss 0.0108 | avg_entropy 0.3460 | avg_kl -0.00107
+2026-02-22 21:52:24 | INFO | Episode 140/200 | reward_return -0.1244 | return_rate 6.39% | avg_policy_loss -0.0008 | avg_value_loss 0.0110 | avg_entropy 0.3588 | avg_kl 0.00064
+2026-02-22 21:52:27 | INFO | Episode 150/200 | reward_return 0.2442 | return_rate 12.13% | avg_policy_loss -0.0014 | avg_value_loss 0.0148 | avg_entropy 0.3511 | avg_kl 0.00655
+2026-02-22 21:52:29 | INFO | Episode 160/200 | reward_return 0.0864 | return_rate -11.07% | avg_policy_loss -0.0069 | avg_value_loss 0.0134 | avg_entropy 0.3397 | avg_kl 0.00673
+2026-02-22 21:52:32 | INFO | Episode 170/200 | reward_return 0.0547 | return_rate 18.99% | avg_policy_loss -0.0007 | avg_value_loss 0.0104 | avg_entropy 0.3355 | avg_kl 0.00801
+2026-02-22 21:52:34 | INFO | Episode 180/200 | reward_return 0.4338 | return_rate 6.33% | avg_policy_loss -0.0025 | avg_value_loss 0.0065 | avg_entropy 0.3144 | avg_kl 0.00811
+2026-02-22 21:52:37 | INFO | Episode 190/200 | reward_return -0.2153 | return_rate 11.18% | avg_policy_loss -0.0024 | avg_value_loss 0.0089 | avg_entropy 0.3117 | avg_kl 0.00432
+2026-02-22 21:52:40 | INFO | Episode 200/200 | reward_return 0.1264 | return_rate 18.72% | avg_policy_loss -0.0024 | avg_value_loss 0.0089 | avg_entropy 0.2795 | avg_kl 0.00564
+2026-02-22 21:52:40 | INFO | Run artifacts saved to runs/ppo_continuous_cpu_1c4d96
+2026-02-22 21:52:59 | INFO | Eval complete | mean_reward_return 0.0013 | mean_return_rate 13.62% | sharpe_ratio 1.1491 | win_rate 0.56
+2026-02-22 21:52:59 | INFO | Evaluation summary saved to runs/ppo_continuous_cpu_1c4d96/eval_summary.json
