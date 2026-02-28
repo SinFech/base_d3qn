@@ -1,0 +1,2 @@
+episode,steps,episode_return,epsilon,avg_loss,avg_q
+0,376,94.5,0.02,54.43129914733706,-6.188306837787614

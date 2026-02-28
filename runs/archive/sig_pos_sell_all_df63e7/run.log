@@ -1,0 +1,33 @@
+2026-02-22 20:46:26 | INFO | Logging dir: runs/sig_pos_sell_all_df63e7
+2026-02-22 20:46:51 | INFO | Episode 10/200 | reward_return 900.00 | epsilon 0.881 | avg_loss 8.1486 | avg_q 7.5742
+2026-02-22 20:47:14 | INFO | Episode 20/200 | reward_return 965.00 | epsilon 0.762 | avg_loss 7.3710 | avg_q 16.5058
+2026-02-22 20:48:26 | INFO | Eval at episode 20 | mean_reward_return 2645.30 | mean_return_rate 859.00% | sharpe_ratio 0.6097 | win_rate 1.00
+2026-02-22 20:48:51 | INFO | Episode 30/200 | reward_return 2160.00 | epsilon 0.050 | avg_loss 10.6792 | avg_q 27.2198
+2026-02-22 20:49:16 | INFO | Episode 40/200 | reward_return 1910.00 | epsilon 0.050 | avg_loss 19.0564 | avg_q 38.4887
+2026-02-22 20:50:28 | INFO | Eval at episode 40 | mean_reward_return 3110.10 | mean_return_rate 1316.32% | sharpe_ratio 0.7398 | win_rate 1.00
+2026-02-22 20:50:53 | INFO | Episode 50/200 | reward_return 3025.00 | epsilon 0.050 | avg_loss 35.4049 | avg_q 51.7073
+2026-02-22 20:51:18 | INFO | Episode 60/200 | reward_return 3540.00 | epsilon 0.050 | avg_loss 50.7250 | avg_q 62.4289
+2026-02-22 20:52:30 | INFO | Eval at episode 60 | mean_reward_return 3200.00 | mean_return_rate 1532.07% | sharpe_ratio 0.7175 | win_rate 1.00
+2026-02-22 20:52:55 | INFO | Episode 70/200 | reward_return 2740.00 | epsilon 0.050 | avg_loss 82.6497 | avg_q 76.3058
+2026-02-22 20:53:20 | INFO | Episode 80/200 | reward_return 2930.00 | epsilon 0.050 | avg_loss 105.7863 | avg_q 88.7693
+2026-02-22 20:54:32 | INFO | Eval at episode 80 | mean_reward_return 3388.10 | mean_return_rate 1804.58% | sharpe_ratio 0.7430 | win_rate 1.00
+2026-02-22 20:54:57 | INFO | Episode 90/200 | reward_return 2695.00 | epsilon 0.050 | avg_loss 119.5912 | avg_q 99.4361
+2026-02-22 20:55:22 | INFO | Episode 100/200 | reward_return 2995.00 | epsilon 0.050 | avg_loss 156.5302 | avg_q 110.8300
+2026-02-22 20:56:34 | INFO | Eval at episode 100 | mean_reward_return 3430.70 | mean_return_rate 1399.57% | sharpe_ratio 0.7615 | win_rate 1.00
+2026-02-22 20:56:59 | INFO | Episode 110/200 | reward_return 2365.00 | epsilon 0.050 | avg_loss 183.5674 | avg_q 117.5571
+2026-02-22 20:57:24 | INFO | Episode 120/200 | reward_return 1720.00 | epsilon 0.050 | avg_loss 226.1621 | avg_q 133.0613
+2026-02-22 20:58:36 | INFO | Eval at episode 120 | mean_reward_return 3461.90 | mean_return_rate 1346.34% | sharpe_ratio 0.7320 | win_rate 1.00
+2026-02-22 20:59:01 | INFO | Episode 130/200 | reward_return 3200.00 | epsilon 0.050 | avg_loss 248.5535 | avg_q 145.7084
+2026-02-22 20:59:26 | INFO | Episode 140/200 | reward_return 2930.00 | epsilon 0.050 | avg_loss 300.3447 | avg_q 158.2995
+2026-02-22 21:00:39 | INFO | Eval at episode 140 | mean_reward_return 3553.10 | mean_return_rate 1397.44% | sharpe_ratio 0.7627 | win_rate 1.00
+2026-02-22 21:01:04 | INFO | Episode 150/200 | reward_return 1775.00 | epsilon 0.050 | avg_loss 332.9839 | avg_q 176.7829
+2026-02-22 21:01:29 | INFO | Episode 160/200 | reward_return 4385.00 | epsilon 0.050 | avg_loss 343.4017 | avg_q 186.1457
+2026-02-22 21:02:40 | INFO | Eval at episode 160 | mean_reward_return 3580.80 | mean_return_rate 1402.23% | sharpe_ratio 0.7105 | win_rate 1.00
+2026-02-22 21:03:04 | INFO | Episode 170/200 | reward_return 1695.00 | epsilon 0.050 | avg_loss 395.1921 | avg_q 197.5891
+2026-02-22 21:03:29 | INFO | Episode 180/200 | reward_return 4425.00 | epsilon 0.050 | avg_loss 362.5146 | avg_q 201.6512
+2026-02-22 21:04:40 | INFO | Eval at episode 180 | mean_reward_return 3435.40 | mean_return_rate 1505.14% | sharpe_ratio 0.7348 | win_rate 1.00
+2026-02-22 21:05:07 | INFO | Episode 190/200 | reward_return 1885.00 | epsilon 0.050 | avg_loss 394.9521 | avg_q 206.3869
+2026-02-22 21:05:32 | INFO | Episode 200/200 | reward_return 4370.00 | epsilon 0.050 | avg_loss 376.3477 | avg_q 215.5822
+2026-02-22 21:06:44 | INFO | Eval at episode 200 | mean_reward_return 3599.60 | mean_return_rate 1432.56% | sharpe_ratio 0.7453 | win_rate 1.00
+2026-02-22 21:06:44 | INFO | Eval history written to runs/sig_pos_sell_all_df63e7/eval_history.csv
+2026-02-22 21:06:44 | INFO | Run artifacts saved to runs/sig_pos_sell_all_df63e7

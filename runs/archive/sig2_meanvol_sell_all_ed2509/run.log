@@ -1,0 +1,8 @@
+2026-01-21 18:23:13 | INFO | Logging dir: runs/sig2_meanvol_sell_all_ed2509
+2026-01-21 18:23:41 | INFO | Episode 10/50 | return 1630.00 | epsilon 0.020 | avg_loss 54.6788 | avg_q 19.0945
+2026-01-21 18:24:07 | INFO | Episode 20/50 | return 1895.00 | epsilon 0.020 | avg_loss 75.3413 | avg_q 29.5259
+2026-01-21 18:24:34 | INFO | Episode 30/50 | return 2512.50 | epsilon 0.020 | avg_loss 95.5721 | avg_q 42.0666
+2026-01-21 18:25:00 | INFO | Episode 40/50 | return 2124.50 | epsilon 0.020 | avg_loss 128.6060 | avg_q 53.6699
+2026-01-21 18:25:27 | INFO | Episode 50/50 | return 2303.50 | epsilon 0.020 | avg_loss 142.3234 | avg_q 65.4241
+2026-01-21 18:25:27 | INFO | Run artifacts saved to runs/sig2_meanvol_sell_all_ed2509
+2026-01-21 18:41:31 | INFO | Evaluation average return over 50 episodes: 3035.27

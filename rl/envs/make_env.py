@@ -6,6 +6,8 @@ from typing import Optional, Tuple
 import pandas as pd
 
 from rl.envs.trading_env import TradingEnvironment
+from rl.envs.trading_env_continuous import ContinuousTradingEnvironment
+from rl.envs.trading_env_discrete_capital import DiscreteCapitalTradingEnvironment
 
 
 def _get_cfg_value(config, key: str, default=None):
@@ -71,24 +73,95 @@ def make_env(
     device: str,
     trading_period: Optional[int] = None,
     max_positions: Optional[int] = None,
+    max_exposure_ratio: Optional[float] = 1.0,
     sell_mode: str = "all",
+    buy_fractions: Optional[list[float]] = None,
+    sell_fractions: Optional[list[float]] = None,
+    action_number: Optional[int] = None,
+    action_mode: str = "discrete",
+    initial_capital: float = 100_000.0,
+    transaction_cost_bps: float = 10.0,
+    slippage_bps: float = 2.0,
+    invalid_sell_penalty: float = 0.1,
+    allow_short: bool = False,
+    max_leverage: float = 1.0,
+    action_low: float = 0.0,
+    action_high: float = 1.0,
+    blocked_trade_penalty: float = 0.0,
+    min_hold_steps: int = 0,
+    trade_cooldown_steps: int = 0,
+    dynamic_exposure_enabled: bool = False,
+    dynamic_exposure_vol_window: int = 30,
+    dynamic_exposure_min_scale: float = 0.5,
+    dynamic_exposure_strength: float = 1.0,
+    min_equity_ratio: float = 0.2,
+    stop_on_bankruptcy: bool = True,
     obs_config=None,
-) -> TradingEnvironment:
-    env = TradingEnvironment(
-        df,
-        reward=reward,
-        window_size=window_size,
-        trading_period=trading_period,
-        device=device,
-        max_positions=max_positions,
-        sell_mode=sell_mode,
-    )
+) -> object:
+    if action_mode == "continuous":
+        env = ContinuousTradingEnvironment(
+            df,
+            reward=reward,
+            window_size=window_size,
+            trading_period=trading_period,
+            initial_capital=initial_capital,
+            transaction_cost_bps=transaction_cost_bps,
+            slippage_bps=slippage_bps,
+            allow_short=allow_short,
+            max_leverage=max_leverage,
+            action_low=action_low,
+            action_high=action_high,
+            min_equity_ratio=min_equity_ratio,
+            stop_on_bankruptcy=stop_on_bankruptcy,
+            device=device,
+        )
+    elif action_mode == "discrete_capital":
+        env = DiscreteCapitalTradingEnvironment(
+            df,
+            reward=reward,
+            window_size=window_size,
+            trading_period=trading_period,
+            max_positions=max_positions,
+            max_exposure_ratio=max_exposure_ratio,
+            sell_mode=sell_mode,
+            buy_fractions=buy_fractions,
+            sell_fractions=sell_fractions,
+            action_number=action_number,
+            initial_capital=initial_capital,
+            transaction_cost_bps=transaction_cost_bps,
+            slippage_bps=slippage_bps,
+            invalid_sell_penalty=invalid_sell_penalty,
+            blocked_trade_penalty=blocked_trade_penalty,
+            min_hold_steps=min_hold_steps,
+            trade_cooldown_steps=trade_cooldown_steps,
+            dynamic_exposure_enabled=dynamic_exposure_enabled,
+            dynamic_exposure_vol_window=dynamic_exposure_vol_window,
+            dynamic_exposure_min_scale=dynamic_exposure_min_scale,
+            dynamic_exposure_strength=dynamic_exposure_strength,
+            min_equity_ratio=min_equity_ratio,
+            stop_on_bankruptcy=stop_on_bankruptcy,
+            device=device,
+        )
+    elif action_mode == "discrete":
+        env = TradingEnvironment(
+            df,
+            reward=reward,
+            window_size=window_size,
+            trading_period=trading_period,
+            device=device,
+            max_positions=max_positions,
+            sell_mode=sell_mode,
+        )
+    else:
+        raise ValueError("action_mode must be 'discrete', 'discrete_capital', or 'continuous'.")
+
     obs_type = _get_cfg_value(obs_config, "type", "raw")
     if obs_type == "signature":
         signature_cfg = _get_cfg_value(obs_config, "signature", {})
         logsig_cfg = _get_cfg_value(signature_cfg, "logsig", {})
         torch_cfg = _get_cfg_value(signature_cfg, "torch", {})
         perf_cfg = _get_cfg_value(signature_cfg, "perf", {})
+        account_feature_keys = _get_cfg_value(signature_cfg, "account_features", None)
 
         from rl.envs.wrappers import SignatureObsWrapper
         from rl.features.signature import LogSigTransformer, PathBuilder
@@ -115,7 +188,13 @@ def make_env(
             prepare_cache_dir=_get_cfg_value(perf_cfg, "prepare_cache_dir", "data/pysiglib_prepare_cache"),
             base_dim=path_builder.base_dim,
         )
-        env = SignatureObsWrapper(env, path_builder, transformer, add_position=False)
+        env = SignatureObsWrapper(
+            env,
+            path_builder,
+            transformer,
+            add_position=False,
+            account_feature_keys=account_feature_keys,
+        )
     elif obs_type == "raw":
         env.obs_dim = window_size
     else:

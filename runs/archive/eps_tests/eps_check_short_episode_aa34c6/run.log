@@ -1,0 +1,3 @@
+2026-02-10 14:23:56 | INFO | Logging dir: runs/eps_tests/eps_check_short_episode_aa34c6
+2026-02-10 14:23:59 | INFO | Episode 1/1 | return -161.50 | epsilon 1.000 | avg_loss 44.3308 | avg_q -7.0958
+2026-02-10 14:23:59 | INFO | Run artifacts saved to runs/eps_tests/eps_check_short_episode_aa34c6

@@ -1,0 +1,8 @@
+2026-01-21 18:25:28 | INFO | Logging dir: runs/sig3_meanvol_sell_all_fb1f11
+2026-01-21 18:25:56 | INFO | Episode 10/50 | return 1685.00 | epsilon 0.020 | avg_loss 45.6575 | avg_q 16.6051
+2026-01-21 18:26:22 | INFO | Episode 20/50 | return 1550.50 | epsilon 0.020 | avg_loss 61.6064 | avg_q 28.7621
+2026-01-21 18:26:49 | INFO | Episode 30/50 | return 2023.00 | epsilon 0.020 | avg_loss 73.1054 | avg_q 40.4226
+2026-01-21 18:27:15 | INFO | Episode 40/50 | return 1432.50 | epsilon 0.020 | avg_loss 81.7893 | avg_q 47.8104
+2026-01-21 18:27:42 | INFO | Episode 50/50 | return 1777.00 | epsilon 0.020 | avg_loss 96.2752 | avg_q 59.8860
+2026-01-21 18:27:42 | INFO | Run artifacts saved to runs/sig3_meanvol_sell_all_fb1f11
+2026-01-21 18:45:11 | INFO | Evaluation average return over 50 episodes: 3188.17

@@ -1,0 +1,8 @@
+2026-01-22 05:13:21 | INFO | Logging dir: runs/sig2_oneplus_mean_8bad94
+2026-01-22 05:13:44 | INFO | Episode 10/50 | return 2134.50 | epsilon 0.020 | avg_loss 44.3660 | avg_q 23.9884
+2026-01-22 05:14:07 | INFO | Episode 20/50 | return 664.50 | epsilon 0.020 | avg_loss 45.3483 | avg_q 42.4459
+2026-01-22 05:14:30 | INFO | Episode 30/50 | return 1593.50 | epsilon 0.020 | avg_loss 55.6758 | avg_q 60.6447
+2026-01-22 05:14:52 | INFO | Episode 40/50 | return 2568.50 | epsilon 0.020 | avg_loss 77.6496 | avg_q 74.3348
+2026-01-22 05:15:15 | INFO | Episode 50/50 | return 2278.50 | epsilon 0.020 | avg_loss 101.5139 | avg_q 91.6514
+2026-01-22 05:15:15 | INFO | Run artifacts saved to runs/sig2_oneplus_mean_8bad94
+2026-01-22 05:32:54 | INFO | Evaluation average return over 50 episodes: 2486.60

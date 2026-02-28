@@ -1,0 +1,8 @@
+2026-01-21 18:19:46 | INFO | Logging dir: runs/sig3_mean_sell_all_c17b4c
+2026-01-21 18:20:22 | INFO | Episode 10/50 | return 1198.50 | epsilon 0.020 | avg_loss 71.0534 | avg_q 21.2774
+2026-01-21 18:21:01 | INFO | Episode 20/50 | return 2177.00 | epsilon 0.020 | avg_loss 100.9074 | avg_q 34.9272
+2026-01-21 18:21:58 | INFO | Episode 30/50 | return 2285.50 | epsilon 0.020 | avg_loss 132.6095 | avg_q 50.5880
+2026-01-21 18:22:46 | INFO | Episode 40/50 | return 2047.50 | epsilon 0.020 | avg_loss 173.8527 | avg_q 61.1606
+2026-01-21 18:23:11 | INFO | Episode 50/50 | return 2211.00 | epsilon 0.020 | avg_loss 182.8911 | avg_q 73.7308
+2026-01-21 18:23:11 | INFO | Run artifacts saved to runs/sig3_mean_sell_all_c17b4c
+2026-01-21 18:38:20 | INFO | Evaluation average return over 50 episodes: 2923.53

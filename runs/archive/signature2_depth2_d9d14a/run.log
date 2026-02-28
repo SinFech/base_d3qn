@@ -1,0 +1,2 @@
+2026-01-21 03:08:24 | INFO | Logging dir: runs/signature2_depth2_d9d14a
+2026-01-21 03:08:49 | INFO | Episode 10/50 | return 2338.50 | epsilon 0.020 | avg_loss 58.5550 | avg_q 24.2688

@@ -1,0 +1,9 @@
+2026-01-21 00:53:14 | INFO | Logging dir: runs/baseline_sell_one_e8a931
+2026-01-21 00:53:36 | INFO | Episode 10/50 | return 2276.50 | epsilon 0.020 | avg_loss 42.8827 | avg_q -6.5819
+2026-01-21 00:53:56 | INFO | Episode 20/50 | return 2304.50 | epsilon 0.020 | avg_loss 48.5804 | avg_q 11.3374
+2026-01-21 00:54:16 | INFO | Episode 30/50 | return 1120.00 | epsilon 0.020 | avg_loss 60.3869 | avg_q 25.1484
+2026-01-21 00:54:36 | INFO | Episode 40/50 | return 1456.50 | epsilon 0.020 | avg_loss 75.8931 | avg_q 40.3745
+2026-01-21 00:54:56 | INFO | Episode 50/50 | return 1434.50 | epsilon 0.020 | avg_loss 94.8804 | avg_q 46.2379
+2026-01-21 00:54:56 | INFO | Run artifacts saved to runs/baseline_sell_one_e8a931
+2026-01-21 00:59:21 | INFO | Evaluation average return over 50 episodes: 3120.38
+2026-01-21 01:18:29 | INFO | Evaluation average return over 50 episodes: 3120.38

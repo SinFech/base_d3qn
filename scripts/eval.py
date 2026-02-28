@@ -27,12 +27,27 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--episodes", type=int, default=None)
     parser.add_argument("--epsilon", type=float, default=None)
     parser.add_argument("--device", type=str, default=None)
-    parser.add_argument("--reward", type=str, default=None, choices=["profit", "sr"])
+    parser.add_argument("--reward", type=str, default=None, choices=["profit", "sr", "sr_enhanced"])
     parser.add_argument("--start-date", type=str, default=None)
     parser.add_argument("--end-date", type=str, default=None)
     parser.add_argument("--trading-period", type=int, default=None)
+    parser.add_argument("--action-mode", type=str, default=None, choices=["discrete", "discrete_capital", "continuous"])
     parser.add_argument("--sell-mode", type=str, default=None, choices=["all", "one", "all_cap", "one_plus"])
     parser.add_argument("--max-positions", type=int, default=None)
+    parser.add_argument("--max-exposure-ratio", type=float, default=None)
+    parser.add_argument("--initial-capital", type=float, default=None)
+    parser.add_argument("--transaction-cost-bps", type=float, default=None)
+    parser.add_argument("--slippage-bps", type=float, default=None)
+    parser.add_argument("--invalid-sell-penalty", type=float, default=None)
+    parser.add_argument("--blocked-trade-penalty", type=float, default=None)
+    parser.add_argument("--min-hold-steps", type=int, default=None)
+    parser.add_argument("--trade-cooldown-steps", type=int, default=None)
+    parser.add_argument("--dynamic-exposure-enabled", type=int, default=None, choices=[0, 1])
+    parser.add_argument("--dynamic-exposure-vol-window", type=int, default=None)
+    parser.add_argument("--dynamic-exposure-min-scale", type=float, default=None)
+    parser.add_argument("--dynamic-exposure-strength", type=float, default=None)
+    parser.add_argument("--action-low", type=float, default=None)
+    parser.add_argument("--action-high", type=float, default=None)
     parser.add_argument("--output-dir", type=str, default=None)
     return parser.parse_args()
 
@@ -50,7 +65,31 @@ def _resolve_device(device: str) -> str:
     return device
 
 
-def _build_action_name_map(action_number: int, sell_mode: str) -> dict[int, str]:
+def _build_action_name_map(
+    action_number: int,
+    sell_mode: str,
+    buy_fractions: Optional[List[float]] = None,
+    sell_fractions: Optional[List[float]] = None,
+) -> dict[int, str]:
+    if buy_fractions or sell_fractions:
+        buys = [float(v) for v in (buy_fractions or [])]
+        sells = [float(v) for v in (sell_fractions or [])]
+        if buys and not sells:
+            sells = [1.0]
+        if sells and not buys:
+            buys = [1.0]
+        action_map = {0: "hold"}
+        offset = 1
+        for fraction in buys:
+            action_map[offset] = f"buy_{int(round(fraction * 100.0))}pct"
+            offset += 1
+        for fraction in sells:
+            if abs(fraction - 1.0) < 1e-12:
+                action_map[offset] = "sell_all"
+            else:
+                action_map[offset] = f"sell_{int(round(fraction * 100.0))}pct"
+            offset += 1
+        return action_map
     if action_number >= 4:
         if sell_mode == "one_plus":
             return {0: "hold", 1: "buy", 2: "sell_one", 3: "sell_all"}
@@ -116,6 +155,16 @@ def _unwrap_trading_env(env):
     return None
 
 
+def _extract_position_size(base_env) -> float:
+    if hasattr(base_env, "_position_units"):
+        return float(base_env._position_units())
+    if hasattr(base_env, "position"):
+        return float(base_env.position)
+    if hasattr(base_env, "agent_positions"):
+        return float(len(base_env.agent_positions))
+    return 0.0
+
+
 def main() -> None:
     args = parse_args()
     checkpoint_path = Path(args.checkpoint)
@@ -139,6 +188,8 @@ def main() -> None:
         config.data.end_date = args.end_date
     if args.trading_period is not None:
         config.env.trading_period = args.trading_period
+    if args.action_mode is not None:
+        config.env.action_mode = args.action_mode
     if args.sell_mode is not None:
         config.env.sell_mode = args.sell_mode
     if args.max_positions is not None:
@@ -146,6 +197,34 @@ def main() -> None:
             config.env.max_positions = None
         else:
             config.env.max_positions = args.max_positions
+    if args.max_exposure_ratio is not None:
+        config.env.max_exposure_ratio = args.max_exposure_ratio
+    if args.initial_capital is not None:
+        config.env.initial_capital = args.initial_capital
+    if args.transaction_cost_bps is not None:
+        config.env.transaction_cost_bps = args.transaction_cost_bps
+    if args.slippage_bps is not None:
+        config.env.slippage_bps = args.slippage_bps
+    if args.invalid_sell_penalty is not None:
+        config.env.invalid_sell_penalty = args.invalid_sell_penalty
+    if args.blocked_trade_penalty is not None:
+        config.env.blocked_trade_penalty = args.blocked_trade_penalty
+    if args.min_hold_steps is not None:
+        config.env.min_hold_steps = args.min_hold_steps
+    if args.trade_cooldown_steps is not None:
+        config.env.trade_cooldown_steps = args.trade_cooldown_steps
+    if args.dynamic_exposure_enabled is not None:
+        config.env.dynamic_exposure_enabled = bool(args.dynamic_exposure_enabled)
+    if args.dynamic_exposure_vol_window is not None:
+        config.env.dynamic_exposure_vol_window = args.dynamic_exposure_vol_window
+    if args.dynamic_exposure_min_scale is not None:
+        config.env.dynamic_exposure_min_scale = args.dynamic_exposure_min_scale
+    if args.dynamic_exposure_strength is not None:
+        config.env.dynamic_exposure_strength = args.dynamic_exposure_strength
+    if args.action_low is not None:
+        config.env.action_low = args.action_low
+    if args.action_high is not None:
+        config.env.action_high = args.action_high
 
     eval_cfg = config.eval
     if args.episodes is not None:
@@ -158,7 +237,12 @@ def main() -> None:
 
     set_global_seeds(eval_seed)
     device = _resolve_device(config.run.device)
-    action_name_map = _build_action_name_map(config.agent.action_number, config.env.sell_mode)
+    action_name_map = _build_action_name_map(
+        config.agent.action_number,
+        config.env.sell_mode,
+        buy_fractions=getattr(config.env, "buy_fractions", None),
+        sell_fractions=getattr(config.env, "sell_fractions", None),
+    )
     action_names = [action_name_map.get(idx, f"action_{idx}") for idx in range(config.agent.action_number)]
 
     df = _prepare_data(config)
@@ -205,7 +289,29 @@ def main() -> None:
         device,
         trading_period=config.env.trading_period,
         max_positions=config.env.max_positions,
+        max_exposure_ratio=config.env.max_exposure_ratio,
         sell_mode=config.env.sell_mode,
+        buy_fractions=getattr(config.env, "buy_fractions", None),
+        sell_fractions=getattr(config.env, "sell_fractions", None),
+        action_number=config.agent.action_number,
+        action_mode=config.env.action_mode,
+        initial_capital=config.env.initial_capital,
+        transaction_cost_bps=config.env.transaction_cost_bps,
+        slippage_bps=config.env.slippage_bps,
+        invalid_sell_penalty=config.env.invalid_sell_penalty,
+        blocked_trade_penalty=getattr(config.env, "blocked_trade_penalty", 0.0),
+        min_hold_steps=getattr(config.env, "min_hold_steps", 0),
+        trade_cooldown_steps=getattr(config.env, "trade_cooldown_steps", 0),
+        dynamic_exposure_enabled=getattr(config.env, "dynamic_exposure_enabled", False),
+        dynamic_exposure_vol_window=getattr(config.env, "dynamic_exposure_vol_window", 30),
+        dynamic_exposure_min_scale=getattr(config.env, "dynamic_exposure_min_scale", 0.5),
+        dynamic_exposure_strength=getattr(config.env, "dynamic_exposure_strength", 1.0),
+        allow_short=config.env.allow_short,
+        max_leverage=config.env.max_leverage,
+        action_low=config.env.action_low,
+        action_high=config.env.action_high,
+        min_equity_ratio=config.env.min_equity_ratio,
+        stop_on_bankruptcy=config.env.stop_on_bankruptcy,
         obs_config=config.env.obs,
     )
     obs_dim = getattr(env, "obs_dim", config.env.window_size)
@@ -217,11 +323,14 @@ def main() -> None:
     agent.target_net.eval()
 
     returns: List[float] = []
+    return_rates: List[float] = []
     episode_rows: List[dict] = []
     total_action_counts = {name: 0 for name in action_names}
-    position_sizes: List[int] = []
+    position_sizes: List[float] = []
     position_change_count = 0
     position_turnover = 0
+    initial_state_none_episodes = 0
+    zero_step_episodes = 0
     with torch.no_grad():
         base_env = _unwrap_trading_env(env)
         track_positions = base_env is not None
@@ -229,12 +338,32 @@ def main() -> None:
             env.reset(seed=eval_seed, start_index=start_index)
             agent.reset_episode()
             state = env.get_state()
+            if state is None:
+                initial_state_none_episodes += 1
+                returns.append(0.0)
+                return_rates.append(0.0)
+                row = {
+                    "episode_id": episode_id,
+                    "start_index": int(env.last_start_index)
+                    if env.last_start_index is not None
+                    else int(start_index),
+                    "reward_return": 0.0,
+                    "episode_return_rate": 0.0,
+                    "episode_steps": 0,
+                }
+                if env.last_start_timestamp is not None:
+                    row["start_timestamp"] = env.last_start_timestamp
+                for name in action_names:
+                    row[f"action_count_{name}"] = 0
+                episode_rows.append(row)
+                continue
             episode_return = 0.0
             episode_action_counts = {name: 0 for name in action_names}
             episode_positions: List[int] = []
             episode_position_change_count = 0
             episode_position_turnover = 0
             previous_position_size = None
+            episode_steps = 0
 
             while state is not None:
                 action = agent.select_action(
@@ -252,7 +381,7 @@ def main() -> None:
                     total_action_counts[action_name] += 1
                 reward, done, _ = env.step(action)
                 if track_positions:
-                    position_size = len(base_env.agent_positions)
+                    position_size = _extract_position_size(base_env)
                     episode_positions.append(position_size)
                     position_sizes.append(position_size)
                     if previous_position_size is not None:
@@ -265,17 +394,40 @@ def main() -> None:
                     previous_position_size = position_size
                 episode_return += reward.item()
                 state = env.get_state()
+                episode_steps += 1
                 if done:
                     break
 
             returns.append(episode_return)
-            episode_steps = sum(episode_action_counts.values())
+            if episode_steps == 0:
+                zero_step_episodes += 1
+            episode_return_rate = 0.0
+            if (
+                track_positions
+                and hasattr(base_env, "equity_start")
+                and hasattr(base_env, "equity_end")
+            ):
+                equity_start = float(base_env.equity_start)
+                equity_end = float(base_env.equity_end)
+                episode_return_rate = (equity_end / (equity_start + 1e-8)) - 1.0
+            elif (
+                track_positions
+                and hasattr(base_env, "init_price")
+                and hasattr(base_env, "realized_pnl")
+                and hasattr(base_env, "agent_open_position_value")
+            ):
+                equity_start = float(base_env.init_price)
+                equity_end = equity_start + float(base_env.realized_pnl) + float(base_env.agent_open_position_value)
+                episode_return_rate = (equity_end / (equity_start + 1e-8)) - 1.0
+            return_rates.append(episode_return_rate)
+
             row = {
                 "episode_id": episode_id,
                 "start_index": int(env.last_start_index)
                 if env.last_start_index is not None
                 else int(start_index),
-                "episode_return": episode_return,
+                "reward_return": episode_return,
+                "episode_return_rate": episode_return_rate,
                 "episode_steps": episode_steps,
             }
             if env.last_start_timestamp is not None:
@@ -288,10 +440,10 @@ def main() -> None:
                     {
                         "position_mean": float(np.mean(positions_array)),
                         "position_std": float(np.std(positions_array)),
-                        "position_min": int(np.min(positions_array)),
-                        "position_max": int(np.max(positions_array)),
+                        "position_min": float(np.min(positions_array)),
+                        "position_max": float(np.max(positions_array)),
                         "position_zero_rate": float(np.mean(positions_array == 0)),
-                        "position_end": int(episode_positions[-1]),
+                        "position_end": float(episode_positions[-1]),
                         "position_change_count": episode_position_change_count,
                         "position_turnover": episode_position_turnover,
                     }
@@ -310,7 +462,8 @@ def main() -> None:
         fieldnames = ["episode_id", "start_index"]
         if include_timestamp:
             fieldnames.append("start_timestamp")
-        fieldnames.append("episode_return")
+        fieldnames.append("reward_return")
+        fieldnames.append("episode_return_rate")
         fieldnames.append("episode_steps")
         for name in action_names:
             fieldnames.append(f"action_count_{name}")
@@ -341,6 +494,14 @@ def main() -> None:
     max_return = float(np.max(returns_array)) if returns_array.size else 0.0
     p25 = float(np.percentile(returns_array, 25)) if returns_array.size else 0.0
     p75 = float(np.percentile(returns_array, 75)) if returns_array.size else 0.0
+    return_rates_array = np.array(return_rates, dtype=float)
+    mean_return_rate = float(np.mean(return_rates_array)) if return_rates_array.size else 0.0
+    std_return_rate = float(np.std(return_rates_array)) if return_rates_array.size else 0.0
+    median_return_rate = float(np.median(return_rates_array)) if return_rates_array.size else 0.0
+    mean_return_rate_pct = mean_return_rate * 100.0
+    std_return_rate_pct = std_return_rate * 100.0
+    median_return_rate_pct = median_return_rate * 100.0
+    sharpe_ratio = float(mean_return_rate / std_return_rate) if std_return_rate > 1e-12 else 0.0
     total_actions = int(sum(total_action_counts.values()))
     action_rates = {
         name: float(count / total_actions) if total_actions > 0 else 0.0
@@ -353,13 +514,20 @@ def main() -> None:
 
     summary = {
         "num_episodes": eval_cfg.num_episodes,
-        "mean_return": mean_return,
-        "std_return": std_return,
-        "median_return": median_return,
-        "min_return": min_return,
-        "max_return": max_return,
-        "p25": p25,
-        "p75": p75,
+        "mean_reward_return": mean_return,
+        "std_reward_return": std_return,
+        "median_reward_return": median_return,
+        "min_reward_return": min_return,
+        "max_reward_return": max_return,
+        "p25_reward_return": p25,
+        "p75_reward_return": p75,
+        "mean_return_rate": mean_return_rate,
+        "std_return_rate": std_return_rate,
+        "median_return_rate": median_return_rate,
+        "mean_return_rate_pct": mean_return_rate_pct,
+        "std_return_rate_pct": std_return_rate_pct,
+        "median_return_rate_pct": median_return_rate_pct,
+        "sharpe_ratio": sharpe_ratio,
         "eval_config": {
             "seed": eval_seed,
             "fixed_windows": eval_cfg.fixed_windows,
@@ -379,6 +547,8 @@ def main() -> None:
         "action_rates": action_rates,
         "action_avg_counts_per_episode": action_avg_counts,
         "action_total_steps": total_actions,
+        "initial_state_none_episodes": int(initial_state_none_episodes),
+        "zero_step_episodes": int(zero_step_episodes),
     }
     if position_sizes:
         positions_array = np.array(position_sizes, dtype=float)
@@ -386,8 +556,8 @@ def main() -> None:
             "mean": float(np.mean(positions_array)),
             "std": float(np.std(positions_array)),
             "median": float(np.median(positions_array)),
-            "min": int(np.min(positions_array)),
-            "max": int(np.max(positions_array)),
+            "min": float(np.min(positions_array)),
+            "max": float(np.max(positions_array)),
             "p25": float(np.percentile(positions_array, 25)),
             "p75": float(np.percentile(positions_array, 75)),
             "zero_rate": float(np.mean(positions_array == 0)),
@@ -403,10 +573,16 @@ def main() -> None:
     summary_path.write_text(json.dumps(summary, indent=2))
 
     logger.info(
-        "Evaluation average return over %s episodes: %.2f",
+        "Evaluation average reward_return over %s episodes: %.2f",
         eval_cfg.num_episodes,
         mean_return,
     )
+    if initial_state_none_episodes > 0 or zero_step_episodes > 0:
+        logger.warning(
+            "Eval diagnostics: initial_state_none_episodes=%s, zero_step_episodes=%s",
+            initial_state_none_episodes,
+            zero_step_episodes,
+        )
 
 
 if __name__ == "__main__":

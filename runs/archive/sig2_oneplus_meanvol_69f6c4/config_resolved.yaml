@@ -1,0 +1,75 @@
+data:
+  path: data/Bitcoin History 2010-2024.csv
+  start_date: '2014-01-01'
+  end_date: '2020-12-31'
+  price_column: Price
+  close_column: Close
+  date_column: Date
+env:
+  reward: sr
+  window_size: 24
+  trading_period: 500
+  train_split: 0.8
+  max_positions: 5
+  sell_mode: one_plus
+  obs:
+    type: signature
+    signature:
+      backend: pysiglib
+      embedding:
+        log_price: {}
+        log_return: {}
+        rolling_mean:
+          window: 5
+        rolling_vol:
+          window: 5
+      rolling_mean_window: 5
+      logsig:
+        degree: 2
+        method: 1
+        time_aug: true
+        lead_lag: false
+        end_time: 1.0
+      torch:
+        device: cuda
+        dtype: float32
+      perf:
+        n_jobs: -1
+        use_disk_prepare_cache: false
+        prepare_cache_dir: data/pysiglib_prepare_cache
+agent:
+  replay_mem_size: 10000
+  batch_size: 40
+  gamma: 0.99
+  eps_start: 1.0
+  eps_end: 0.02
+  eps_steps: 200
+  learning_rate: 0.00025
+  input_dim: 15
+  hidden_dim: 120
+  action_number: 4
+  target_update: 5
+  model: ddqn
+  double: true
+train:
+  num_episodes: 50
+  max_steps_per_episode: null
+  max_total_steps: null
+  log_interval: 10
+  checkpoint_interval: 5
+  eval_epsilon: 0.0
+eval:
+  num_episodes: 50
+  seed: 20240101
+  fixed_windows: true
+  fixed_windows_seed: 20240101
+  epsilon: 0.0
+  save_per_episode: true
+run:
+  seed: 1
+  device: cuda
+model:
+  type: mlp_dueling
+  hidden_sizes:
+  - 256
+  - 256

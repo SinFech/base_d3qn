@@ -53,7 +53,7 @@ class DuelingDQN(nn.Module):
         features = self.feauture_layer(state)
         values = self.value_stream(features)
         advantages = self.advantage_stream(features)
-        qvals = values + (advantages - advantages.mean())
+        qvals = values + (advantages - advantages.mean(dim=1, keepdim=True))
         return qvals
 
 
@@ -110,7 +110,7 @@ class ConvDuelingDQN(nn.Module):
         split = self.split_layer(max_pool_2)
         values = self.value_stream(split)
         advantages = self.advantage_stream(split)
-        qvals = values + (advantages - advantages.mean())
+        qvals = values + (advantages - advantages.mean(dim=1, keepdim=True))
         return qvals
 
 
@@ -144,7 +144,7 @@ class MLPDuelingDQN(nn.Module):
         features = self.feature_layer(x)
         values = self.value_stream(features)
         advantages = self.advantage_stream(features)
-        qvals = values + (advantages - advantages.mean())
+        qvals = values + (advantages - advantages.mean(dim=1, keepdim=True))
         return qvals
 
 

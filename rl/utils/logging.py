@@ -69,6 +69,7 @@ class CSVLogger:
 class TensorBoardLogger:
     def __init__(self, log_dir: Path) -> None:
         self._writer = None
+        self._log_dir = log_dir
         try:
             from torch.utils.tensorboard import SummaryWriter  # type: ignore
 
@@ -84,8 +85,16 @@ class TensorBoardLogger:
     def log(self, metrics: Dict[str, float], step: int) -> None:
         if not self._writer:
             return
-        for key, value in metrics.items():
-            self._writer.add_scalar(key, value, step)
+        try:
+            # Guard against transient filesystem issues so training can continue.
+            self._log_dir.mkdir(parents=True, exist_ok=True)
+            for key, value in metrics.items():
+                self._writer.add_scalar(key, value, step)
+        except Exception:
+            try:
+                self._writer.close()
+            finally:
+                self._writer = None
 
     def close(self) -> None:
         if self._writer:

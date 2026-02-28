@@ -1,0 +1,12 @@
+2026-02-21 23:50:19 | INFO | Logging dir: runs/test_signature_91261a
+2026-02-21 23:51:03 | INFO | Episode 10/200 | reward_return 850.00 | epsilon 0.881 | avg_loss 37.3440 | avg_q 6.0415
+2026-02-21 23:51:44 | INFO | Episode 20/200 | reward_return -235.00 | epsilon 0.762 | avg_loss 61.0034 | avg_q 10.0504
+2026-02-21 23:53:26 | INFO | Eval at episode 20 | mean_reward_return 2244.20 | mean_return_rate 1311.94% | sharpe_ratio 0.6358 | win_rate 0.90
+2026-02-21 23:54:11 | INFO | Episode 30/200 | reward_return 1865.00 | epsilon 0.050 | avg_loss 131.0059 | avg_q 18.4282
+2026-02-21 23:54:57 | INFO | Episode 40/200 | reward_return 1695.00 | epsilon 0.050 | avg_loss 201.3207 | avg_q 31.0890
+2026-02-21 23:56:40 | INFO | Eval at episode 40 | mean_reward_return 2788.70 | mean_return_rate 1469.99% | sharpe_ratio 0.7066 | win_rate 1.00
+2026-02-21 23:57:26 | INFO | Episode 50/200 | reward_return 2825.00 | epsilon 0.050 | avg_loss 248.9882 | avg_q 42.7732
+2026-02-21 23:58:12 | INFO | Episode 60/200 | reward_return 6235.00 | epsilon 0.050 | avg_loss 294.9397 | avg_q 52.8544
+2026-02-21 23:59:54 | INFO | Eval at episode 60 | mean_reward_return 3310.60 | mean_return_rate 1353.38% | sharpe_ratio 0.6533 | win_rate 1.00
+2026-02-22 00:00:40 | INFO | Episode 70/200 | reward_return 2060.00 | epsilon 0.050 | avg_loss 319.3084 | avg_q 58.5268
+2026-02-22 00:01:26 | INFO | Episode 80/200 | reward_return 5445.00 | epsilon 0.050 | avg_loss 450.9161 | avg_q 75.2292

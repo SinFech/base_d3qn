@@ -22,7 +22,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--num-episodes", type=int, default=None)
     parser.add_argument("--max-steps-per-episode", type=int, default=None)
     parser.add_argument("--total-steps", type=int, default=None)
-    parser.add_argument("--reward", type=str, default=None, choices=["profit", "sr"])
+    parser.add_argument("--reward", type=str, default=None, choices=["profit", "sr", "sr_enhanced"])
     parser.add_argument("--device", type=str, default=None)
     parser.add_argument("--trading-period", type=int, default=None)
     parser.add_argument("--train-split", type=float, default=None)

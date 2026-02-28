@@ -1,0 +1,8 @@
+2026-01-22 03:47:09 | INFO | Logging dir: runs/baseline_allcap_73e0c6
+2026-01-22 03:48:29 | INFO | Episode 10/50 | return 224.00 | epsilon 0.020 | avg_loss 40.2737 | avg_q 5.8649
+2026-01-22 03:48:56 | INFO | Episode 20/50 | return 1951.00 | epsilon 0.020 | avg_loss 57.6933 | avg_q 19.1411
+2026-01-22 03:50:14 | INFO | Episode 30/50 | return 1357.00 | epsilon 0.020 | avg_loss 189.3801 | avg_q 36.1416
+2026-01-22 03:50:48 | INFO | Episode 40/50 | return 1887.50 | epsilon 0.020 | avg_loss 84.4629 | avg_q 58.0407
+2026-01-22 03:51:16 | INFO | Episode 50/50 | return 1350.00 | epsilon 0.020 | avg_loss 102.9146 | avg_q 60.6860
+2026-01-22 03:51:16 | INFO | Run artifacts saved to runs/baseline_allcap_73e0c6
+2026-01-22 04:23:44 | INFO | Evaluation average return over 50 episodes: 2686.79

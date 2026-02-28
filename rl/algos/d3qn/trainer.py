@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import csv
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import torch
@@ -33,7 +34,28 @@ class EnvConfig:
     trading_period: int = 500
     train_split: float = 0.8
     max_positions: Optional[int] = None
+    max_exposure_ratio: Optional[float] = 1.0
     sell_mode: str = "all"
+    buy_fractions: Optional[list[float]] = None
+    sell_fractions: Optional[list[float]] = None
+    action_mode: str = "discrete"
+    initial_capital: float = 100_000.0
+    transaction_cost_bps: float = 10.0
+    slippage_bps: float = 2.0
+    invalid_sell_penalty: float = 0.1
+    blocked_trade_penalty: float = 0.0
+    min_hold_steps: int = 0
+    trade_cooldown_steps: int = 0
+    dynamic_exposure_enabled: bool = False
+    dynamic_exposure_vol_window: int = 30
+    dynamic_exposure_min_scale: float = 0.5
+    dynamic_exposure_strength: float = 1.0
+    allow_short: bool = False
+    max_leverage: float = 1.0
+    action_low: float = 0.0
+    action_high: float = 1.0
+    min_equity_ratio: float = 0.2
+    stop_on_bankruptcy: bool = True
     obs: "ObsConfig" = field(default_factory=lambda: ObsConfig())
 
 
@@ -64,6 +86,7 @@ class SignatureObsConfig:
     backend: str = "pysiglib"
     embedding: dict = field(default_factory=lambda: {"log_price": {}, "log_return": {}})
     rolling_mean_window: int = 5
+    account_features: list[str] = field(default_factory=list)
     logsig: LogSigConfig = field(default_factory=LogSigConfig)
     torch: SignatureTorchConfig = field(default_factory=SignatureTorchConfig)
     perf: SignaturePerfConfig = field(default_factory=SignaturePerfConfig)
@@ -90,6 +113,12 @@ class AgentConfig:
     target_update: int = 5
     model: str = "ddqn"
     double: bool = True
+    per_enabled: bool = False
+    per_alpha: float = 0.6
+    per_beta_start: float = 0.4
+    per_beta_steps: int = 100000
+    per_eps: float = 1e-6
+    n_step: int = 1
 
 
 @dataclass
@@ -100,6 +129,12 @@ class TrainConfig:
     log_interval: int = 10
     checkpoint_interval: int = 5
     eval_epsilon: float = 0.0
+    resample_train_window_each_episode: bool = False
+    eval_interval: int = 10
+    eval_episodes: int = 20
+    eval_seed: Optional[int] = 20240101
+    plateau_threshold: float = 0.01
+    plateau_patience: int = 5
 
 
 @dataclass
@@ -141,6 +176,34 @@ def _resolve_device(device: str) -> str:
     return device
 
 
+def _compute_start_range(
+    data_len: int,
+    window_size: int,
+    trading_period: Optional[int],
+) -> Tuple[int, int]:
+    min_start = window_size - 1
+    max_start = data_len - 1 if trading_period is None else data_len - trading_period
+    return min_start, max_start
+
+
+def _compute_fixed_eval_indices(
+    data_len: int,
+    window_size: int,
+    trading_period: Optional[int],
+    num_episodes: int,
+    seed: int,
+) -> List[int]:
+    """Precompute fixed start indices for periodic eval using a local RNG."""
+    min_start, max_start = _compute_start_range(data_len, window_size, trading_period)
+    if max_start < min_start:
+        raise ValueError(
+            f"Invalid start_index range [{min_start}, {max_start}] for data length {data_len} "
+            f"and trading_period {trading_period}."
+        )
+    rng = np.random.default_rng(seed)
+    return rng.integers(min_start, max_start + 1, size=num_episodes).tolist()
+
+
 def config_from_dict(data: Dict) -> Config:
     raw_env = data.get("env", {})
     raw_obs = raw_env.get("obs", {})
@@ -153,6 +216,7 @@ def config_from_dict(data: Dict) -> Config:
         backend=raw_signature.get("backend", "pysiglib"),
         embedding=raw_signature.get("embedding", {"log_price": {}, "log_return": {}}),
         rolling_mean_window=raw_signature.get("rolling_mean_window", 5),
+        account_features=raw_signature.get("account_features", []),
         logsig=LogSigConfig(**raw_logsig),
         torch=SignatureTorchConfig(**raw_signature_torch),
         perf=SignaturePerfConfig(**raw_signature_perf),
@@ -211,6 +275,12 @@ def build_agent(config: Config, device: str, input_dim: Optional[int] = None) ->
         model=config.model.type,
         hidden_sizes=config.model.hidden_sizes,
         double=config.agent.double,
+        per_enabled=config.agent.per_enabled,
+        per_alpha=config.agent.per_alpha,
+        per_beta_start=config.agent.per_beta_start,
+        per_beta_steps=config.agent.per_beta_steps,
+        per_eps=config.agent.per_eps,
+        n_step=config.agent.n_step,
         device=device,
     )
 
@@ -239,6 +309,178 @@ def _resolve_obs_dim(env, config: Config) -> int:
     return obs_dim
 
 
+def _unwrap_trading_env(env):
+    current = env
+    for _ in range(10):
+        if hasattr(current, "agent_positions"):
+            return current
+        if hasattr(current, "env"):
+            current = current.env
+            continue
+        break
+    return None
+
+
+def _evaluate_with_agent(
+    config: Config,
+    agent: D3QNAgent,
+    episodes: int,
+    epsilon: float,
+    device: str,
+    eval_seed: Optional[int] = None,
+    eval_indices: Optional[List[int]] = None,
+    eval_df=None,
+) -> Tuple[float, Dict[str, float], list]:
+    seed = eval_seed if eval_seed is not None else config.run.seed
+    seed_everything(seed)
+
+    df = _prepare_data(config) if eval_df is None else eval_df
+    min_start, max_start = _compute_start_range(
+        len(df),
+        config.env.window_size,
+        config.env.trading_period,
+    )
+    if max_start < min_start:
+        raise ValueError(
+            "Invalid start_index range "
+            f"[{min_start}, {max_start}] for data length {len(df)} "
+            f"and trading_period {config.env.trading_period}."
+        )
+
+    if eval_indices is not None:
+        if len(eval_indices) < episodes:
+            raise ValueError("eval_indices length must be >= episodes.")
+        start_indices = [int(eval_indices[i]) for i in range(episodes)]
+        for index in start_indices:
+            if not (min_start <= index <= max_start):
+                raise ValueError(
+                    "eval index must be in the range "
+                    f"[{min_start}, {max_start}] but got {index}."
+                )
+    else:
+        rng = np.random.default_rng(seed)
+        start_indices = rng.integers(min_start, max_start + 1, size=episodes).tolist()
+
+    env = make_env(
+        df,
+        config.env.reward,
+        config.env.window_size,
+        device,
+        trading_period=config.env.trading_period,
+        max_positions=config.env.max_positions,
+        max_exposure_ratio=config.env.max_exposure_ratio,
+        sell_mode=config.env.sell_mode,
+        buy_fractions=config.env.buy_fractions,
+        sell_fractions=config.env.sell_fractions,
+        action_number=config.agent.action_number,
+        action_mode=config.env.action_mode,
+        initial_capital=config.env.initial_capital,
+        transaction_cost_bps=config.env.transaction_cost_bps,
+        slippage_bps=config.env.slippage_bps,
+        invalid_sell_penalty=config.env.invalid_sell_penalty,
+        blocked_trade_penalty=config.env.blocked_trade_penalty,
+        min_hold_steps=config.env.min_hold_steps,
+        trade_cooldown_steps=config.env.trade_cooldown_steps,
+        dynamic_exposure_enabled=config.env.dynamic_exposure_enabled,
+        dynamic_exposure_vol_window=config.env.dynamic_exposure_vol_window,
+        dynamic_exposure_min_scale=config.env.dynamic_exposure_min_scale,
+        dynamic_exposure_strength=config.env.dynamic_exposure_strength,
+        allow_short=config.env.allow_short,
+        max_leverage=config.env.max_leverage,
+        action_low=config.env.action_low,
+        action_high=config.env.action_high,
+        min_equity_ratio=config.env.min_equity_ratio,
+        stop_on_bankruptcy=config.env.stop_on_bankruptcy,
+        obs_config=config.env.obs,
+    )
+    _resolve_obs_dim(env, config)
+
+    returns: List[float] = []
+    return_rates: List[float] = []
+    cumulative_returns: List[list] = []
+    initial_state_none_episodes = 0
+    zero_step_episodes = 0
+
+    policy_was_training = agent.policy_net.training
+    target_was_training = agent.target_net.training
+    agent.policy_net.eval()
+    agent.target_net.eval()
+    try:
+        with torch.no_grad():
+            for start_index in start_indices:
+                env.reset(start_index=start_index)
+                agent.reset_episode()
+                state = env.get_state()
+                if state is None:
+                    initial_state_none_episodes += 1
+                    returns.append(0.0)
+                    cumulative_returns.append(getattr(env, "cumulative_return", []))
+                    return_rates.append(0.0)
+                    continue
+
+                episode_return = 0.0
+                episode_steps = 0
+                while state is not None:
+                    action = agent.select_action(state, training=False, epsilon_override=epsilon)
+                    reward, done, _ = env.step(action)
+                    episode_return += reward.item()
+                    state = env.get_state()
+                    episode_steps += 1
+                    if done:
+                        break
+
+                returns.append(episode_return)
+                if episode_steps == 0:
+                    zero_step_episodes += 1
+                cumulative_returns.append(env.cumulative_return)
+                episode_return_rate = 0.0
+                base_env = _unwrap_trading_env(env)
+                if (
+                    base_env is not None
+                    and hasattr(base_env, "equity_start")
+                    and hasattr(base_env, "equity_end")
+                ):
+                    equity_start = float(base_env.equity_start)
+                    equity_end = float(base_env.equity_end)
+                    episode_return_rate = (equity_end / (equity_start + 1e-8)) - 1.0
+                elif (
+                    base_env is not None
+                    and hasattr(base_env, "init_price")
+                    and hasattr(base_env, "realized_pnl")
+                    and hasattr(base_env, "agent_open_position_value")
+                ):
+                    equity_start = float(base_env.init_price)
+                    equity_end = equity_start + float(base_env.realized_pnl) + float(base_env.agent_open_position_value)
+                    episode_return_rate = (equity_end / (equity_start + 1e-8)) - 1.0
+                return_rates.append(episode_return_rate)
+    finally:
+        if policy_was_training:
+            agent.policy_net.train()
+        if target_was_training:
+            agent.target_net.train()
+
+    mean_return = float(np.mean(returns)) if returns else 0.0
+    median_return = float(np.median(returns)) if returns else 0.0
+    std_return = float(np.std(returns)) if returns else 0.0
+    mean_return_rate = float(np.mean(return_rates)) if return_rates else 0.0
+    std_return_rate = float(np.std(return_rates)) if return_rates else 0.0
+    sharpe_ratio = float(mean_return_rate / std_return_rate) if std_return_rate > 1e-12 else 0.0
+    win_rate = float(np.mean(np.array(returns) > 0.0)) if returns else 0.0
+    metrics = {
+        "mean_reward_return": mean_return,
+        "median_reward_return": median_return,
+        "std_reward_return": std_return,
+        "mean_return_rate": mean_return_rate,
+        "sharpe_ratio": sharpe_ratio,
+        "win_rate": win_rate,
+        "initial_state_none_episodes": float(initial_state_none_episodes),
+        "zero_step_episodes": float(zero_step_episodes),
+        "episodes": float(episodes),
+        "epsilon": float(epsilon),
+    }
+    return mean_return, metrics, cumulative_returns
+
+
 def train(config: Config, run_paths: RunPaths) -> RunPaths:
 
     seed_everything(config.run.seed)
@@ -247,21 +489,46 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
     run_logger.info("Logging dir: %s", run_paths.run_dir)
 
     df = _prepare_data(config)
-    train_df, _ = sample_train_test_split(
-        df,
-        trading_period=config.env.trading_period,
-        train_split=config.env.train_split,
-    )
 
-    env = make_env(
-        train_df,
-        config.env.reward,
-        config.env.window_size,
-        device,
-        max_positions=config.env.max_positions,
-        sell_mode=config.env.sell_mode,
-        obs_config=config.env.obs,
-    )
+    def _build_train_env():
+        train_df, _ = sample_train_test_split(
+            df,
+            trading_period=config.env.trading_period,
+            train_split=config.env.train_split,
+        )
+        return make_env(
+            train_df,
+            config.env.reward,
+            config.env.window_size,
+            device,
+            max_positions=config.env.max_positions,
+            max_exposure_ratio=config.env.max_exposure_ratio,
+            sell_mode=config.env.sell_mode,
+            buy_fractions=config.env.buy_fractions,
+            sell_fractions=config.env.sell_fractions,
+            action_number=config.agent.action_number,
+            action_mode=config.env.action_mode,
+            initial_capital=config.env.initial_capital,
+            transaction_cost_bps=config.env.transaction_cost_bps,
+            slippage_bps=config.env.slippage_bps,
+            invalid_sell_penalty=config.env.invalid_sell_penalty,
+            blocked_trade_penalty=config.env.blocked_trade_penalty,
+            min_hold_steps=config.env.min_hold_steps,
+            trade_cooldown_steps=config.env.trade_cooldown_steps,
+            dynamic_exposure_enabled=config.env.dynamic_exposure_enabled,
+            dynamic_exposure_vol_window=config.env.dynamic_exposure_vol_window,
+            dynamic_exposure_min_scale=config.env.dynamic_exposure_min_scale,
+            dynamic_exposure_strength=config.env.dynamic_exposure_strength,
+            allow_short=config.env.allow_short,
+            max_leverage=config.env.max_leverage,
+            action_low=config.env.action_low,
+            action_high=config.env.action_high,
+            min_equity_ratio=config.env.min_equity_ratio,
+            stop_on_bankruptcy=config.env.stop_on_bankruptcy,
+            obs_config=config.env.obs,
+        )
+
+    env = _build_train_env()
     obs_dim = _resolve_obs_dim(env, config)
     agent = build_agent(config, device, input_dim=obs_dim)
 
@@ -275,7 +542,7 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
         fieldnames=[
             "episode",
             "steps",
-            "episode_return",
+            "reward_return",
             "epsilon",
             "avg_loss",
             "avg_q",
@@ -286,21 +553,42 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
 
     total_steps = 0
     stop_training = False
+    eval_history: List[Dict[str, float]] = []
+    eval_seed = getattr(config.train, "eval_seed", None) or config.eval.seed
+    eval_interval = getattr(config.train, "eval_interval", 10)
+    eval_episodes = getattr(config.train, "eval_episodes", 20)
+
+    fixed_eval_indices: Optional[List[int]] = None
+    if eval_interval > 0 and eval_episodes > 0:
+        fixed_eval_indices = _compute_fixed_eval_indices(
+            len(df),
+            config.env.window_size,
+            config.env.trading_period,
+            eval_episodes,
+            eval_seed,
+        )
+
     for episode in range(config.train.num_episodes):
+        if episode > 0 and config.train.resample_train_window_each_episode:
+            env = _build_train_env()
+            current_obs_dim = getattr(env, "obs_dim", config.env.window_size)
+            if current_obs_dim != obs_dim:
+                raise ValueError("Observation dimension changed after train-window resampling.")
         env.reset(start_index=env.window_size - 1)
         agent.reset_episode()
         state = env.get_state()
-        episode_return = 0.0
+        reward_return = 0.0
         losses = []
         q_values = []
         steps = 0
+        episode_done = False
 
         while state is not None:
             action = agent.select_action(state, training=True)
             reward, done, _ = env.step(action)
-            episode_return += reward.item()
+            reward_return += reward.item()
             next_state = env.get_state()
-            agent.store_transition(state, action, next_state, reward)
+            agent.store_transition(state, action, next_state, reward, done=done)
 
             if agent.double:
                 result = agent.optimize_double_dqn()
@@ -321,7 +609,12 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
             if config.train.max_steps_per_episode and steps >= config.train.max_steps_per_episode:
                 break
             if done:
+                episode_done = True
                 break
+
+        if not episode_done:
+            # Time-limit truncation should keep bootstrap targets for n-step returns.
+            agent.finalize_episode(force_terminal=False)
 
         if episode % agent.target_update == 0:
             agent.update_target()
@@ -331,7 +624,7 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
         row = {
             "episode": episode,
             "steps": steps,
-            "episode_return": episode_return,
+            "reward_return": reward_return,
             "epsilon": agent.last_epsilon,
             "avg_loss": avg_loss,
             "avg_q": avg_q,
@@ -340,10 +633,10 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
 
         if (episode + 1) % config.train.log_interval == 0:
             run_logger.info(
-                "Episode %s/%s | return %.2f | epsilon %.3f | avg_loss %.4f | avg_q %.4f",
+                "Episode %s/%s | reward_return %.2f | epsilon %.3f | avg_loss %.4f | avg_q %.4f",
                 episode + 1,
                 config.train.num_episodes,
-                episode_return,
+                reward_return,
                 agent.last_epsilon,
                 avg_loss,
                 avg_q,
@@ -361,6 +654,44 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
                 step=total_steps,
             )
 
+        if eval_interval > 0 and eval_episodes > 0 and (episode + 1) % eval_interval == 0:
+            _, eval_metrics, _ = _evaluate_with_agent(
+                config,
+                agent,
+                episodes=eval_episodes,
+                epsilon=0.0,
+                device=device,
+                eval_seed=eval_seed,
+                eval_indices=fixed_eval_indices,
+                eval_df=df,
+            )
+            row_eval = {
+                "eval_at_episode": episode + 1,
+                "mean_reward_return": eval_metrics["mean_reward_return"],
+                "median_reward_return": eval_metrics["median_reward_return"],
+                "std_reward_return": eval_metrics["std_reward_return"],
+                # Store return rate as percentage for easier reading in CSV.
+                "mean_return_rate": eval_metrics["mean_return_rate"] * 100.0,
+                "sharpe_ratio": eval_metrics["sharpe_ratio"],
+                "win_rate": eval_metrics["win_rate"],
+            }
+            eval_history.append(row_eval)
+            run_logger.info(
+                "Eval at episode %s | mean_reward_return %.2f | mean_return_rate %.2f%% | sharpe_ratio %.4f | win_rate %.2f",
+                row_eval["eval_at_episode"],
+                row_eval["mean_reward_return"],
+                row_eval["mean_return_rate"],
+                row_eval["sharpe_ratio"],
+                row_eval["win_rate"],
+            )
+            if eval_metrics.get("initial_state_none_episodes", 0) > 0 or eval_metrics.get("zero_step_episodes", 0) > 0:
+                run_logger.warning(
+                    "Eval diagnostics at episode %s: initial_state_none=%s, zero_step_episodes=%s",
+                    row_eval["eval_at_episode"],
+                    int(eval_metrics.get("initial_state_none_episodes", 0)),
+                    int(eval_metrics.get("zero_step_episodes", 0)),
+                )
+
         if stop_training:
             break
 
@@ -374,6 +705,24 @@ def train(config: Config, run_paths: RunPaths) -> RunPaths:
         episode=config.train.num_episodes,
         step=total_steps,
     )
+    if eval_history:
+        eval_csv = run_paths.run_dir / "eval_history.csv"
+        with eval_csv.open("w", newline="") as f:
+            w = csv.DictWriter(
+                f,
+                fieldnames=[
+                    "eval_at_episode",
+                    "mean_reward_return",
+                    "median_reward_return",
+                    "std_reward_return",
+                    "mean_return_rate",
+                    "sharpe_ratio",
+                    "win_rate",
+                ],
+            )
+            w.writeheader()
+            w.writerows(eval_history)
+        run_logger.info("Eval history written to %s", eval_csv)
     metrics_logger.close()
     run_logger.info("Run artifacts saved to %s", run_paths.run_dir)
     return run_paths
@@ -385,9 +734,10 @@ def evaluate(
     episodes: int,
     epsilon: float,
     device: str,
-) -> Tuple[float, Dict[str, float], list[list[float]]]:
+    eval_seed: Optional[int] = None,
+    eval_indices: Optional[List[int]] = None,
+) -> Tuple[float, Dict[str, float], list]:
     device = _resolve_device(device)
-    seed_everything(config.run.seed)
 
     df = _prepare_data(config)
     dim_env = make_env(
@@ -395,9 +745,31 @@ def evaluate(
         config.env.reward,
         config.env.window_size,
         device,
-        trading_period=None,
+        trading_period=config.env.trading_period,
         max_positions=config.env.max_positions,
+        max_exposure_ratio=config.env.max_exposure_ratio,
         sell_mode=config.env.sell_mode,
+        buy_fractions=config.env.buy_fractions,
+        sell_fractions=config.env.sell_fractions,
+        action_number=config.agent.action_number,
+        action_mode=config.env.action_mode,
+        initial_capital=config.env.initial_capital,
+        transaction_cost_bps=config.env.transaction_cost_bps,
+        slippage_bps=config.env.slippage_bps,
+        invalid_sell_penalty=config.env.invalid_sell_penalty,
+        blocked_trade_penalty=config.env.blocked_trade_penalty,
+        min_hold_steps=config.env.min_hold_steps,
+        trade_cooldown_steps=config.env.trade_cooldown_steps,
+        dynamic_exposure_enabled=config.env.dynamic_exposure_enabled,
+        dynamic_exposure_vol_window=config.env.dynamic_exposure_vol_window,
+        dynamic_exposure_min_scale=config.env.dynamic_exposure_min_scale,
+        dynamic_exposure_strength=config.env.dynamic_exposure_strength,
+        allow_short=config.env.allow_short,
+        max_leverage=config.env.max_leverage,
+        action_low=config.env.action_low,
+        action_high=config.env.action_high,
+        min_equity_ratio=config.env.min_equity_ratio,
+        stop_on_bankruptcy=config.env.stop_on_bankruptcy,
         obs_config=config.env.obs,
     )
     obs_dim = _resolve_obs_dim(dim_env, config)
@@ -406,44 +778,13 @@ def evaluate(
     checkpoint = load_checkpoint(checkpoint_path, device=device)
     agent.policy_net.load_state_dict(checkpoint["policy_state"])
     agent.target_net.load_state_dict(checkpoint["target_state"])
-    agent.policy_net.eval()
-
-    returns = []
-    cumulative_returns = []
-    for _ in range(episodes):
-        _, test_df = sample_train_test_split(
-            df,
-            trading_period=config.env.trading_period,
-            train_split=config.env.train_split,
-        )
-        env = make_env(
-            test_df,
-            config.env.reward,
-            config.env.window_size,
-            device,
-            trading_period=None,
-            max_positions=config.env.max_positions,
-            sell_mode=config.env.sell_mode,
-            obs_config=config.env.obs,
-        )
-        env.reset(start_index=env.window_size - 1)
-        state = env.get_state()
-        episode_return = 0.0
-
-        while state is not None:
-            action = agent.select_action(state, training=False, epsilon_override=epsilon)
-            reward, done, _ = env.step(action)
-            episode_return += reward.item()
-            state = env.get_state()
-            if done:
-                break
-        returns.append(episode_return)
-        cumulative_returns.append(env.cumulative_return)
-
-    mean_return = float(np.mean(returns)) if returns else 0.0
-    metrics = {
-        "mean_return": mean_return,
-        "episodes": float(episodes),
-        "epsilon": float(epsilon),
-    }
-    return mean_return, metrics, cumulative_returns
+    return _evaluate_with_agent(
+        config,
+        agent,
+        episodes=episodes,
+        epsilon=epsilon,
+        device=device,
+        eval_seed=eval_seed,
+        eval_indices=eval_indices,
+        eval_df=df,
+    )

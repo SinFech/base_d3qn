@@ -1,0 +1,9 @@
+2026-01-21 00:55:03 | INFO | Logging dir: runs/signature2_sell_one_83f00e
+2026-01-21 00:55:26 | INFO | Episode 10/50 | return 2333.00 | epsilon 0.020 | avg_loss 56.1644 | avg_q 24.4406
+2026-01-21 00:55:48 | INFO | Episode 20/50 | return 2275.50 | epsilon 0.020 | avg_loss 85.4026 | avg_q 42.2951
+2026-01-21 00:56:09 | INFO | Episode 30/50 | return 2579.00 | epsilon 0.020 | avg_loss 125.4382 | avg_q 60.3813
+2026-01-21 00:56:31 | INFO | Episode 40/50 | return 2468.00 | epsilon 0.020 | avg_loss 179.4956 | avg_q 77.4107
+2026-01-21 00:56:53 | INFO | Episode 50/50 | return 2508.00 | epsilon 0.020 | avg_loss 217.8634 | avg_q 90.9493
+2026-01-21 00:56:53 | INFO | Run artifacts saved to runs/signature2_sell_one_83f00e
+2026-01-21 01:00:14 | INFO | Evaluation average return over 50 episodes: 1996.60
+2026-01-21 01:19:25 | INFO | Evaluation average return over 50 episodes: 1996.60

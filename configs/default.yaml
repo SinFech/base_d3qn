@@ -48,6 +48,12 @@ agent:
   target_update: 5
   model: ddqn
   double: true
+  per_enabled: false
+  per_alpha: 0.6
+  per_beta_start: 0.4
+  per_beta_steps: 100000
+  per_eps: 0.000001
+  n_step: 1
 
 model:
   type: conv_dueling
