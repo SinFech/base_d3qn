@@ -11,7 +11,8 @@ __pycache__/
 
 .venv/
 
-# runs/
+# Run artifacts (large, local, non-reproducible in git)
+runs/
 outputs/
 checkpoints/
 

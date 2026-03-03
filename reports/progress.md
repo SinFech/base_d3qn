@@ -56,3 +56,18 @@ This log tracks implementation milestones that materially changed model behavior
   - Rewrote `README.md` and experiment report to match current repository state.
 - Blockers: None.
 - Next: Multi-seed evaluation for top 2-3 configs and confidence-interval reporting.
+
+## 2026-03-02
+- Summary: Finished rolling long-OOS 15-run D3QN stress test (6-action, PER=0.6, n-step=3) and compared it against PPO/D3QN baselines under the same protocol.
+- Changes:
+  - Completed `runs/wf_rolling_long_oos_d3qn_6act_a06_n3_worstfold` (3 folds x 5 seeds).
+  - Recorded final OOS summary:
+    - D3QN (6act/PER/n3): OOS Sharpe mean `0.3132`, OOS Return mean `45.2441%`, worst-fold Sharpe `-0.4965`.
+    - D3QN baseline (3-action, n=1, no PER): OOS Sharpe mean `0.0945`, worst-fold Sharpe `-0.9421`.
+    - PPO baseline: OOS Sharpe mean `0.4705`, worst-fold Sharpe `-0.1884`.
+  - Consolidated run-directory naming with `single_*` / `batch_*` prefixes and moved obsolete batches into `runs/_pruned_20260302/`.
+- Blockers:
+  - D3QN improved mean OOS metrics but still underperforms PPO on worst-fold (`f3`) robustness.
+- Next:
+  - Keep PPO as deployment baseline.
+  - If continuing D3QN iteration, prioritize reducing `f3` downside before optimizing average return.
