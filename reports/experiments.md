@@ -71,3 +71,59 @@ Active run directories retained in `runs/`:
 - Current best OOS benchmark in this repository: `ppo_cash_best_oos_e200_s42_1c4d96`.
 - D3QN remains competitive in IS but needs further OOS robustness work (multi-seed and risk-control tuning).
 - Future comparison should use multi-seed confidence intervals rather than single-seed point estimates.
+
+## F. 2026-03 Rolling OOS Update (New)
+
+This section appends the latest walk-forward multi-seed results while keeping the historical curated snapshot above.
+
+### F1. OOS Training Loop Setup
+
+- Runner: `scripts/walk_forward_protocol.py`
+- Folds source: `configs/folds_rolling_long_oos.json`
+- Seeds: `42,43,44,45,46` (5 seeds per fold)
+- Total runs:
+  - `runs/batch_wf_rolling_long_oos_repeat`: `ppo + d3qn`, `3 folds x 5 seeds = 30 runs`
+  - `runs/wf_rolling_long_oos_d3qn_6act_a06_n3_worstfold`: `d3qn only`, `3 folds x 5 seeds = 15 runs`
+- Common evaluation settings (from resolved configs):
+  - `eval.num_episodes=50`
+  - `eval.epsilon=0.0`
+  - `eval.fixed_windows=true`
+  - `eval.fixed_windows_seed=20240101`
+- Loop semantics in `scripts/walk_forward_protocol.py`:
+  - For each `(algo, fold, seed)`: set train range to fold train dates and train once.
+  - Evaluate IS on the same fold train range.
+  - Evaluate OOS on the fold test range.
+  - Write per-run summaries and aggregate into `results.csv`, `summary_by_algo_fold.csv`, `summary_by_algo.csv`.
+- Fold windows used:
+  - `f1`: train `2014-01-01 ~ 2018-12-31`, test `2019-01-01 ~ 2022-12-31`
+  - `f2`: train `2015-01-01 ~ 2019-12-31`, test `2020-01-01 ~ 2023-12-31`
+  - `f3`: train `2016-01-01 ~ 2020-12-31`, test `2021-01-01 ~ 2024-02-09`
+
+### F2. Aggregate OOS Comparison (Mean Across 15 Runs)
+
+| Run group | Algo/config | OOS Sharpe (mean +/- std) | OOS Return % (mean +/- std) | Worst fold OOS Sharpe |
+|---|---|---:|---:|---:|
+| `runs/batch_wf_rolling_long_oos_repeat` | PPO baseline | `0.4705 +/- 0.5948` | `32.84 +/- 43.36` | `-0.1884 (f3)` |
+| `runs/batch_wf_rolling_long_oos_repeat` | D3QN baseline (3-action, no PER, n=1) | `0.0945 +/- 0.8288` | `26.41 +/- 48.69` | `-0.9421 (f3)` |
+| `runs/wf_rolling_long_oos_d3qn_6act_a06_n3_worstfold` | D3QN (6-action, PER=0.6, n=3) | `0.3132 +/- 0.6321` | `45.24 +/- 54.62` | `-0.4965 (f3)` |
+
+### F3. Per-Fold Means (5 Seeds per Fold)
+
+| Algo/config | Fold | OOS Sharpe mean | OOS Return % mean |
+|---|---|---:|---:|
+| PPO baseline | `f1` | `1.1079` | `66.35` |
+| PPO baseline | `f2` | `0.4920` | `41.46` |
+| PPO baseline | `f3` | `-0.1884` | `-9.28` |
+| D3QN baseline (3-action, no PER, n=1) | `f1` | `0.8650` | `68.60` |
+| D3QN baseline (3-action, no PER, n=1) | `f2` | `0.3607` | `36.98` |
+| D3QN baseline (3-action, no PER, n=1) | `f3` | `-0.9421` | `-26.35` |
+| D3QN (6-action, PER=0.6, n=3) | `f1` | `0.8905` | `85.86` |
+| D3QN (6-action, PER=0.6, n=3) | `f2` | `0.5456` | `67.45` |
+| D3QN (6-action, PER=0.6, n=3) | `f3` | `-0.4965` | `-17.58` |
+
+### F4. Source Files
+
+- `runs/batch_wf_rolling_long_oos_repeat/summary_by_algo.csv`
+- `runs/batch_wf_rolling_long_oos_repeat/summary_by_algo_fold.csv`
+- `runs/wf_rolling_long_oos_d3qn_6act_a06_n3_worstfold/summary_by_algo.csv`
+- `runs/wf_rolling_long_oos_d3qn_6act_a06_n3_worstfold/summary_by_algo_fold.csv`
