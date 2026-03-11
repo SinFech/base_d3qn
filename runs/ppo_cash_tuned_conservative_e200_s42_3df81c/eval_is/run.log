@@ -1,0 +1,2 @@
+2026-02-25 16:58:57 | INFO | Eval complete | mean_reward_return 0.0123 | mean_return_rate 73.26% | sharpe_ratio 0.8889 | win_rate 0.56
+2026-02-25 16:58:57 | INFO | Evaluation summary saved to runs/ppo_tuned_conservative_e200_3df81c/eval_is/eval_summary.json

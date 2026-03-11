@@ -1,0 +1,92 @@
+data:
+  path: data/Bitcoin History 2010-2024.csv
+  start_date: '2014-01-01'
+  end_date: '2020-12-31'
+  price_column: Price
+  close_column: Close
+  date_column: Date
+env:
+  reward: sr_enhanced
+  window_size: 24
+  trading_period: 500
+  train_split: 0.8
+  action_mode: continuous
+  initial_capital: 100000.0
+  transaction_cost_bps: 10.0
+  slippage_bps: 2.0
+  allow_short: false
+  max_leverage: 1.0
+  action_low: 0.0
+  action_high: 1.0
+  min_equity_ratio: 0.2
+  stop_on_bankruptcy: true
+  max_positions: null
+  sell_mode: all
+  obs:
+    type: signature
+    signature:
+      backend: pysiglib
+      embedding:
+        log_price: {}
+        log_return: {}
+        rolling_vol:
+          window: 5
+      rolling_mean_window: 5
+      account_features:
+      - cash_ratio
+      - position_ratio
+      - equity_return
+      - last_action
+      logsig:
+        degree: 3
+        method: 1
+        time_aug: true
+        lead_lag: false
+        end_time: 1.0
+      torch:
+        device: cpu
+        dtype: float32
+      perf:
+        n_jobs: -1
+        use_disk_prepare_cache: false
+        prepare_cache_dir: data/pysiglib_prepare_cache
+sac:
+  hidden_sizes:
+  - 256
+  - 256
+  replay_size: 200000
+  batch_size: 256
+  gamma: 0.99
+  tau: 0.005
+  actor_learning_rate: 0.0003
+  critic_learning_rate: 0.0003
+  alpha_learning_rate: 0.0003
+  init_alpha: 0.2
+  auto_alpha: true
+  target_entropy_scale: 1.0
+  start_steps: 1000
+  update_after: 1000
+  update_every: 1
+  updates_per_step: 1
+  action_dim: 1
+  log_std_min: -20.0
+  log_std_max: 2.0
+  deterministic_eval: true
+train:
+  num_episodes: 200
+  max_steps_per_episode: null
+  max_total_steps: null
+  log_interval: 10
+  checkpoint_interval: 5
+  resample_train_window_each_episode: true
+eval:
+  num_episodes: 50
+  seed: 20240101
+  fixed_windows: true
+  fixed_windows_seed: 20240101
+  epsilon: 0.0
+  save_per_episode: true
+run:
+  seed: 42
+  device: cpu
+algo: sac_continuous

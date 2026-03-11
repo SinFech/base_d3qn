@@ -1,0 +1,22 @@
+2026-02-24 09:15:44 | INFO | Logging dir: runs/ab6_full_base_s43_e200_716920
+2026-02-24 09:17:48 | INFO | Episode 10/200 | reward_return -2.07 | epsilon 0.881 | avg_loss 0.0022 | avg_q 0.0246
+2026-02-24 09:19:54 | INFO | Episode 20/200 | reward_return -0.57 | epsilon 0.762 | avg_loss 0.0021 | avg_q 0.0484
+2026-02-24 09:22:00 | INFO | Episode 30/200 | reward_return -0.62 | epsilon 0.643 | avg_loss 0.0022 | avg_q 0.0618
+2026-02-24 09:24:06 | INFO | Episode 40/200 | reward_return -0.25 | epsilon 0.524 | avg_loss 0.0022 | avg_q 0.0836
+2026-02-24 09:26:12 | INFO | Episode 50/200 | reward_return -0.61 | epsilon 0.405 | avg_loss 0.0023 | avg_q 0.0975
+2026-02-24 09:28:19 | INFO | Episode 60/200 | reward_return -0.43 | epsilon 0.286 | avg_loss 0.0021 | avg_q 0.1107
+2026-02-24 09:30:30 | INFO | Episode 70/200 | reward_return -0.50 | epsilon 0.167 | avg_loss 0.0024 | avg_q 0.1211
+2026-02-24 09:32:44 | INFO | Episode 80/200 | reward_return -0.01 | epsilon 0.050 | avg_loss 0.0028 | avg_q 0.1404
+2026-02-24 09:34:57 | INFO | Episode 90/200 | reward_return 0.26 | epsilon 0.050 | avg_loss 0.0028 | avg_q 0.1574
+2026-02-24 09:37:11 | INFO | Episode 100/200 | reward_return 0.24 | epsilon 0.050 | avg_loss 0.0027 | avg_q 0.1749
+2026-02-24 09:39:26 | INFO | Episode 110/200 | reward_return -0.19 | epsilon 0.050 | avg_loss 0.0029 | avg_q 0.1676
+2026-02-24 09:41:41 | INFO | Episode 120/200 | reward_return -0.43 | epsilon 0.050 | avg_loss 0.0027 | avg_q 0.1741
+2026-02-24 09:43:56 | INFO | Episode 130/200 | reward_return -0.03 | epsilon 0.050 | avg_loss 0.0028 | avg_q 0.1771
+2026-02-24 09:46:16 | INFO | Episode 140/200 | reward_return 0.03 | epsilon 0.050 | avg_loss 0.0028 | avg_q 0.1734
+2026-02-24 09:48:34 | INFO | Episode 150/200 | reward_return -0.12 | epsilon 0.050 | avg_loss 0.0028 | avg_q 0.1713
+2026-02-24 09:50:55 | INFO | Episode 160/200 | reward_return -0.05 | epsilon 0.050 | avg_loss 0.0027 | avg_q 0.1809
+2026-02-24 09:53:17 | INFO | Episode 170/200 | reward_return -0.34 | epsilon 0.050 | avg_loss 0.0027 | avg_q 0.1810
+2026-02-24 09:55:37 | INFO | Episode 180/200 | reward_return 0.05 | epsilon 0.050 | avg_loss 0.0026 | avg_q 0.1921
+2026-02-24 09:57:54 | INFO | Episode 190/200 | reward_return 0.09 | epsilon 0.050 | avg_loss 0.0026 | avg_q 0.1923
+2026-02-24 10:00:14 | INFO | Episode 200/200 | reward_return -0.55 | epsilon 0.050 | avg_loss 0.0025 | avg_q 0.2084
+2026-02-24 10:00:14 | INFO | Run artifacts saved to runs/ab6_full_base_s43_e200_716920

@@ -1,0 +1,29 @@
+{
+  "num_episodes": 50,
+  "mean_reward_return": 0.001293483528845627,
+  "median_reward_return": 0.02287614016813677,
+  "std_reward_return": 0.2584739882454664,
+  "mean_return_rate": 0.13623293976433712,
+  "mean_return_rate_pct": 13.623293976433711,
+  "sharpe_ratio": 1.1491301337278812,
+  "win_rate": 0.56,
+  "initial_state_none_episodes": 0,
+  "zero_step_episodes": 0,
+  "eval_config": {
+    "seed": 20240101,
+    "fixed_windows": true,
+    "fixed_windows_seed": 20240101,
+    "epsilon": 0.0,
+    "save_per_episode": true
+  },
+  "window_size": 24,
+  "trading_period": 500,
+  "action_mode": "continuous",
+  "initial_capital": 100000.0,
+  "transaction_cost_bps": 10.0,
+  "slippage_bps": 2.0,
+  "data_range": {
+    "start_date": "2014-01-01",
+    "end_date": "2020-12-31"
+  }
+}
