@@ -71,3 +71,21 @@ This log tracks implementation milestones that materially changed model behavior
 - Next:
   - Keep PPO as deployment baseline.
   - If continuing D3QN iteration, prioritize reducing `f3` downside before optimizing average return.
+
+## 2026-03-09
+- Summary: Completed D3QN action-space comparison under the same rolling walk-forward protocol and tightened repository retention rules around run artifacts.
+- Changes:
+  - Finished `6-action`, `7-action`, and `8-action` D3QN comparisons with `3 folds x 5 seeds`.
+  - Added and retained key configs for:
+    - `6-action sell_fractions`
+    - `7-action old-buy + sell_fractions`
+    - `8-action add buy100 + sell_fractions`
+    - paired `6 vs 8` risk-budget comparison configs
+  - Updated repository policy so `runs/` keeps only lightweight summary tables while checkpoints, tensorboard logs, per-run eval outputs, and resolved configs are ignored.
+  - Updated README and experiment report to preserve both historical milestones and the latest action-space comparison.
+- Key result:
+  - `6-action sell_fractions` remains the strongest D3QN branch on `worst_fold_oos_sharpe_mean`.
+  - `7-action` and `8-action` improved `f1/f2` upside but materially worsened `f3`, indicating more aggressiveness rather than better generalization.
+- Next:
+  - Use `6-action sell_fractions` as the D3QN reference branch.
+  - Compare `6-action` vs `8-action` only under matched risk budgets if action-space expansion is revisited.
