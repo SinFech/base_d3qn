@@ -1,2 +1,0 @@
-2026-02-24 19:02:11 | INFO | Eval complete | mean_reward_return -0.0239 | mean_return_rate -12.07% | sharpe_ratio -0.3528 | win_rate 0.44
-2026-02-24 19:02:11 | INFO | Evaluation summary saved to runs/sac_tuned_low_entropy_e200_a848d1/eval_oos_2021_2024/eval_summary.json

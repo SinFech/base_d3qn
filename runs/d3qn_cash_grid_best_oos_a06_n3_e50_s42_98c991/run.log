@@ -1,7 +1,0 @@
-2026-02-24 13:30:21 | INFO | Logging dir: runs/d3qn_risk_a06_n3_e50_98c991
-2026-02-24 13:32:26 | INFO | Episode 10/50 | reward_return -0.60 | epsilon 0.881 | avg_loss 0.0022 | avg_q 0.1556
-2026-02-24 13:34:32 | INFO | Episode 20/50 | reward_return -0.14 | epsilon 0.762 | avg_loss 0.0015 | avg_q 0.1609
-2026-02-24 13:36:41 | INFO | Episode 30/50 | reward_return -0.29 | epsilon 0.643 | avg_loss 0.0014 | avg_q 0.1685
-2026-02-24 13:38:54 | INFO | Episode 40/50 | reward_return -0.57 | epsilon 0.524 | avg_loss 0.0011 | avg_q 0.1842
-2026-02-24 13:41:11 | INFO | Episode 50/50 | reward_return -0.08 | epsilon 0.405 | avg_loss 0.0008 | avg_q 0.1829
-2026-02-24 13:41:11 | INFO | Run artifacts saved to runs/d3qn_risk_a06_n3_e50_98c991

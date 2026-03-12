@@ -33,7 +33,6 @@ Interpretation:
 | Run | Setting Focus | IS Sharpe | OOS Sharpe | IS Return % | OOS Return % | IS Reward | OOS Reward |
 |---|---|---:|---:|---:|---:|---:|---:|
 | `d3qn_cash_grid_best_oos_a06_n3_e50_s42_98c991` | Risk-grid best OOS checkpoint (50 ep) | 0.5760 | -0.2479 | 200.3411 | -10.8321 | 0.0103 | 0.0079 |
-| `d3qn_cash_6act_exposure06_sellall_e200_s42_9d1d1e` | 6-action, exposure 0.6 | 0.8671 | -1.1378 | 28.7134 | -20.6099 | 0.0113 | -0.0132 |
 | `d3qn_cash_6act_exposure08_sellall_e200_s42_8864ec` | 6-action, exposure 0.8 | 0.8600 | -0.3346 | 42.5904 | -10.0104 | 0.0156 | -0.0069 |
 | `d3qn_ablation_base_seed43_e200_716920` | Ablation baseline (no PER/n-step) | 0.7809 | -0.6077 | 200.2523 | -18.9298 | -0.0698 | -0.0067 |
 | `d3qn_ablation_per_n3_seed43_e200_b1f6dc` | Ablation PER + n-step | 0.8044 | -0.4622 | 210.1763 | -19.8298 | -0.0454 | -0.0296 |
@@ -54,10 +53,9 @@ Interpretation:
 
 ## D. Curated Run Registry
 
-Active run directories retained in `runs/`:
+Active historical single-run directories retained in `runs/`:
 - `d3qn_ablation_base_seed43_e200_716920`
 - `d3qn_ablation_per_n3_seed43_e200_b1f6dc`
-- `d3qn_cash_6act_exposure06_sellall_e200_s42_9d1d1e`
 - `d3qn_cash_6act_exposure08_sellall_e200_s42_8864ec`
 - `d3qn_cash_grid_best_oos_a06_n3_e50_s42_98c991`
 - `d3qn_legacy_nocash_sr_enhanced_sellall_pos5_e200_df84f3`
@@ -127,3 +125,61 @@ This section appends the latest walk-forward multi-seed results while keeping th
 - `runs/batch_wf_rolling_long_oos_repeat/summary_by_algo_fold.csv`
 - `runs/wf_rolling_long_oos_d3qn_6act_a06_n3_worstfold/summary_by_algo.csv`
 - `runs/wf_rolling_long_oos_d3qn_6act_a06_n3_worstfold/summary_by_algo_fold.csv`
+
+## G. 2026-03 Action-Space Comparison (6 vs 7 vs 8 Actions)
+
+This section keeps the latest D3QN action-space study while retaining the older milestone runs above.
+
+### G1. Protocol
+
+- Runner: `scripts/walk_forward_protocol.py`
+- Folds: `configs/folds_rolling_long_oos.json`
+- Seeds: `42,43,44,45,46`
+- Common loop:
+  - rolling walk-forward
+  - `3 folds x 5 seeds = 15 runs`
+  - `train_split=1.0`
+  - `train_episodes=260`
+  - later reruns used `max_total_steps=130000` to avoid premature stopping around episode `210`
+- Primary decision metric:
+  - `worst_fold_oos_sharpe_mean`
+  - then `oos_sharpe_mean`
+  - then `oos_return_pct_mean`
+
+### G2. Aggregate Comparison
+
+| Run group | D3QN config | OOS Sharpe (mean +/- std) | OOS Return % (mean +/- std) | Worst fold OOS Sharpe |
+|---|---|---:|---:|---:|
+| `runs/wf_d3qn_sellfrac_wf_sellfrac_20260308_125429` | `6-action`, sell fractions | `0.2920 +/- 0.4391` | `15.24 +/- 21.12` | `-0.1985 (f3)` |
+| `runs/wf_d3qn_7act_sellfrac_wf_7act_sellfrac_20260309_011013` | `7-action`, old buy ladder + sell fractions | `0.2536 +/- 0.5370` | `21.04 +/- 34.79` | `-0.3711 (f3)` |
+| `runs/wf_d3qn_8act_sellfrac_wf_8act_sellfrac_20260309_122333` | `8-action`, add `buy 100%` | `0.2764 +/- 0.5332` | `30.58 +/- 39.61` | `-0.3919 (f3)` |
+
+### G3. Per-Fold Comparison
+
+| Config | Fold | OOS Sharpe mean | OOS Return % mean |
+|---|---|---:|---:|
+| `6-action` | `f1` | `0.7302` | `34.63` |
+| `6-action` | `f2` | `0.3444` | `17.14` |
+| `6-action` | `f3` | `-0.1985` | `-6.05` |
+| `7-action` | `f1` | `0.8533` | `61.17` |
+| `7-action` | `f2` | `0.2788` | `15.23` |
+| `7-action` | `f3` | `-0.3711` | `-13.28` |
+| `8-action` | `f1` | `0.8306` | `68.46` |
+| `8-action` | `f2` | `0.3906` | `39.95` |
+| `8-action` | `f3` | `-0.3919` | `-16.69` |
+
+### G4. Interpretation
+
+- `6-action sell_fractions` remains the best D3QN mainline on robustness.
+- `7-action` and `8-action` both improve upside in `f1/f2`, but they do so by becoming more aggressive.
+- `f3` deteriorates materially once the action space is enlarged:
+  - `6-action f3 Sharpe = -0.1985`
+  - `7-action f3 Sharpe = -0.3711`
+  - `8-action f3 Sharpe = -0.3919`
+- Current evidence says larger action spaces are not adding structural edge; they are adding upside beta and downside fragility.
+
+### G5. Current D3QN Recommendation
+
+- Keep `6-action sell_fractions` as the current D3QN branch to compare against PPO.
+- Treat `7-action` and `8-action` as informative negative controls: useful for understanding aggressiveness, but not the primary deployment candidate.
+- If D3QN iteration continues, prioritize risk-budget sweeps on the `6-action` branch instead of further action expansion.

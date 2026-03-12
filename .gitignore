@@ -11,10 +11,25 @@ __pycache__/
 
 .venv/
 
-# Run artifacts (large, local, non-reproducible in git)
-runs/
+# Run artifacts: ignore everything under runs by default and keep only curated
+# summary tables checked into the repository.
+runs/**
+!runs/
+!runs/**/
+!runs/**/summary_by_algo.csv
+!runs/**/summary_by_algo_fold.csv
+runs/_pruned_*/
+runs/RUN_RENAME_MAP_*.csv
+runs/single_*/
+runs/d3qn_sig_gpu_full_*/
 outputs/
 checkpoints/
 
 *.pt
 *.pth
+
+logs/*
+!logs/.gitkeep
+
+# Local secrets and machine-specific auth helpers
+.secrets/

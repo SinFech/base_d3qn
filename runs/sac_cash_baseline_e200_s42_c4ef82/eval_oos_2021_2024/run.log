@@ -1,2 +1,0 @@
-2026-02-22 22:19:27 | INFO | Eval complete | mean_reward_return 0.0158 | mean_return_rate -13.37% | sharpe_ratio -0.3844 | win_rate 0.52
-2026-02-22 22:19:27 | INFO | Evaluation summary saved to runs/sac_continuous_cpu_c4ef82/eval_oos_2021_2024/eval_summary.json

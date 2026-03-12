@@ -1,2 +1,0 @@
-2026-02-22 21:52:59 | INFO | Eval complete | mean_reward_return 0.0045 | mean_return_rate 2.77% | sharpe_ratio 0.6046 | win_rate 0.48
-2026-02-22 21:52:59 | INFO | Evaluation summary saved to runs/ppo_continuous_cpu_1c4d96/eval_oos_2021_2024/eval_summary.json
