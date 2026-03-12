@@ -11,18 +11,17 @@ __pycache__/
 
 .venv/
 
-# Run artifacts: keep only curated summary tables in git
-runs/**/checkpoints/
-runs/**/tensorboard/
-runs/**/metrics.csv
-runs/**/run.log
-runs/**/config_resolved.yaml
-runs/**/results.csv
-runs/**/eval_is/
-runs/**/eval_oos/
-runs/**/eval_is_summary.json
-runs/**/eval_oos_summary.json
-runs/**/eval_episodes.csv
+# Run artifacts: ignore everything under runs by default and keep only curated
+# summary tables checked into the repository.
+runs/**
+!runs/
+!runs/**/
+!runs/**/summary_by_algo.csv
+!runs/**/summary_by_algo_fold.csv
+runs/_pruned_*/
+runs/RUN_RENAME_MAP_*.csv
+runs/single_*/
+runs/d3qn_sig_gpu_full_*/
 outputs/
 checkpoints/
 
