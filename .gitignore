@@ -33,3 +33,5 @@ logs/*
 
 # Local secrets and machine-specific auth helpers
 .secrets/
+
+.agents/
