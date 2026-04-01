@@ -179,19 +179,18 @@ class LogSigTransformer:
         if self.use_disk_prepare_cache:
             self.prepare_cache_dir.mkdir(parents=True, exist_ok=True)
 
-        # Note: pysiglib 0.2.3 doesn't have prepare_log_sig
-        # Preparation is handled automatically by the library
+        if base_dim is not None and hasattr(pysiglib, "prepare_log_sig"):
+            pysiglib.prepare_log_sig(
+                base_dim,
+                self.degree,
+                self.method,
+                self.time_aug,
+                self.lead_lag,
+                self.use_disk_prepare_cache,
+            )
 
     def obs_dim(self, base_dim: int) -> int:
-        # Compute effective dimension after transformations
-        effective_dim = base_dim
-        if self.time_aug:
-            effective_dim += 1
-        if self.lead_lag:
-            effective_dim *= 2
-        # Use sig_length from pysiglib
-        from pysiglib import sig_length
-        return int(sig_length(effective_dim, self.degree))
+        return int(pysiglib.log_sig_length(base_dim, self.degree, self.time_aug, self.lead_lag))
 
     def transform(self, path: torch.Tensor) -> torch.Tensor:
         if path.ndim == 2:
@@ -202,24 +201,15 @@ class LogSigTransformer:
 
     def _transform_single(self, path: torch.Tensor) -> torch.Tensor:
         path = path.to(device=self.device, dtype=self.dtype)
-        
-        # Apply transformations manually for pysiglib 0.2.3 compatibility
-        transformed_path = path
-        
-        # Time augmentation: add time coordinate
-        if self.time_aug:
-            time_coord = torch.linspace(0, self.end_time, path.shape[0], device=path.device, dtype=path.dtype).unsqueeze(1)
-            transformed_path = torch.cat([time_coord, path], dim=1)
-        
-        # Lead-lag transformation: create [x_i, x_{i-1}] pairs
-        if self.lead_lag:
-            lead = transformed_path
-            lag = torch.cat([transformed_path[:1], transformed_path[:-1]], dim=0)
-            transformed_path = torch.cat([lead, lag], dim=1)
-        
-        # Use pysiglib 0.2.3 API: signature(path, depth)
-        from pysiglib import signature
-        return signature(transformed_path, self.degree)
+        return pysiglib.log_sig(
+            path,
+            self.degree,
+            self.time_aug,
+            self.lead_lag,
+            self.end_time,
+            self.method,
+            self.n_jobs,
+        )
 
     def __call__(self, path: torch.Tensor) -> torch.Tensor:
         return self.transform(path)
