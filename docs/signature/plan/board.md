@@ -15,7 +15,8 @@ See `AGENTS.md` in this directory for the operating rules of the planning worksp
 
 | Step | Title | Status | Goal |
 |---|---|---|---|
-| [Step 1](./step1.md) | Freeze Candidate Signature Upgrade Set | In Progress | Lock the set of improvements that are worth testing in this repository. |
+| [Step 0](./step0.md) | Measure Baseline Metrics | Done | Measure and record the baseline metrics that later signature candidates will be compared against. |
+| [Step 1](./step1.md) | Freeze Candidate Signature Upgrade Set | Planned | Lock the set of improvements that are worth testing in this repository. |
 | [Step 2](./step2.md) | Define Benchmark Matrix and Acceptance Criteria | Planned | Define which configs, metrics, and thresholds will be used for comparison. |
 | [Step 3](./step3.md) | Measure Feature-Extraction Runtime and Observation Cost | Planned | Benchmark observation dimension and signature extraction cost for each candidate setup. |
 | [Step 4](./step4.md) | Run Short Training and Stability Sweeps | Planned | Use short runs to filter weak candidates before full evaluation. |
@@ -24,5 +25,5 @@ See `AGENTS.md` in this directory for the operating rules of the planning worksp
 
 ## Current Focus
 
-- Active step: `Step 1`
-- Immediate objective: convert the reviewed improvement list into a stable experiment scope
+- Active step: `None`
+- Immediate objective: Step 0 is complete; Step 1 can now freeze the candidate upgrade scope against a measured baseline reference
