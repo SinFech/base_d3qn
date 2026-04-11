@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Optional
+from typing import Mapping, Optional
 
 import numpy as np
+import pandas as pd
 import torch
 import pysiglib  # type: ignore
 
@@ -26,6 +27,8 @@ class PathBuilder:
         self,
         embedding: Optional[dict] = None,
         rolling_mean_window: int = 5,
+        standardize_path_channels: bool = False,
+        basepoint: bool = False,
         device: str | torch.device = "cpu",
         dtype: str | torch.dtype = "float32",
         eps: float = 1e-8,
@@ -36,6 +39,8 @@ class PathBuilder:
         self.device = torch.device(device)
         self.dtype = _resolve_torch_dtype(dtype)
         self.eps = eps
+        self.standardize_path_channels = bool(standardize_path_channels)
+        self.basepoint = bool(basepoint)
         if rolling_mean_window < 1:
             raise ValueError("rolling_mean_window must be >= 1.")
         self.rolling_mean_window = int(rolling_mean_window)
@@ -69,6 +74,13 @@ class PathBuilder:
             "rolling_std": "rolling_vol",
             "vol": "rolling_vol",
             "volatility": "rolling_vol",
+            "normalized_cumulative_volume": "normalized_cumulative_volume",
+            "cumulative_volume": "normalized_cumulative_volume",
+            "cum_volume": "normalized_cumulative_volume",
+            "volume_profile": "normalized_cumulative_volume",
+            "high_low_range": "high_low_range",
+            "hl_range": "high_low_range",
+            "range_proxy": "high_low_range",
         }
         normalized: list[str] = []
         for raw in components:
@@ -76,7 +88,14 @@ class PathBuilder:
                 raise ValueError("embedding components must be strings.")
             key = raw.strip()
             key = alias_map.get(key, key)
-            if key not in {"log_price", "log_return", "rolling_mean", "rolling_vol"}:
+            if key not in {
+                "log_price",
+                "log_return",
+                "rolling_mean",
+                "rolling_vol",
+                "normalized_cumulative_volume",
+                "high_low_range",
+            }:
                 raise ValueError(f"Unsupported embedding component: {raw}")
             normalized.append(key)
 
@@ -84,6 +103,56 @@ class PathBuilder:
             raise ValueError("embedding components must be unique.")
         normalized_options = {alias_map.get(key, key): value for key, value in options.items()}
         return normalized, normalized_options
+
+    def _to_1d_tensor(self, values) -> torch.Tensor:
+        tensor = torch.as_tensor(values, device=self.device, dtype=self.dtype)
+        if tensor.ndim == 2 and tensor.shape[1] == 1:
+            tensor = tensor.squeeze(1)
+        if tensor.ndim != 1:
+            raise ValueError("PathBuilder inputs must resolve to 1D channels.")
+        return tensor
+
+    def _normalize_input_key(self, key: str) -> str:
+        text = key.strip().lower().replace(".", "").replace("%", "pct")
+        text = text.replace(" ", "_")
+        alias_map = {
+            "price": "close",
+            "close": "close",
+            "open": "open",
+            "high": "high",
+            "low": "low",
+            "vol": "volume",
+            "volume": "volume",
+            "changepct": "changepct",
+            "change_pct": "changepct",
+        }
+        return alias_map.get(text, text)
+
+    def _resolve_input_channels(
+        self,
+        window_data: np.ndarray | torch.Tensor | pd.DataFrame | Mapping[str, np.ndarray | torch.Tensor],
+    ) -> dict[str, torch.Tensor]:
+        if isinstance(window_data, pd.DataFrame):
+            channels: dict[str, torch.Tensor] = {}
+            for column in window_data.columns:
+                if not pd.api.types.is_numeric_dtype(window_data[column]):
+                    continue
+                channels[self._normalize_input_key(str(column))] = self._to_1d_tensor(
+                    window_data[column].to_numpy()
+                )
+            return channels
+        if isinstance(window_data, Mapping):
+            return {
+                self._normalize_input_key(str(key)): self._to_1d_tensor(value)
+                for key, value in window_data.items()
+            }
+        close = self._to_1d_tensor(window_data)
+        return {"close": close}
+
+    def _require_channel(self, channels: dict[str, torch.Tensor], name: str) -> torch.Tensor:
+        if name not in channels:
+            raise ValueError(f"Embedding component requires '{name}' data in the current window.")
+        return channels[name]
 
     def _rolling_mean(self, values: torch.Tensor, window: Optional[int] = None) -> torch.Tensor:
         resolved_window = self.rolling_mean_window if window is None else int(window)
@@ -117,13 +186,21 @@ class PathBuilder:
         var = torch.clamp(mean_sq - mean * mean, min=0.0)
         return torch.sqrt(var)
 
-    def build(self, window_close: np.ndarray | torch.Tensor) -> torch.Tensor:
-        close = torch.as_tensor(window_close, device=self.device, dtype=self.dtype)
-        if close.ndim == 2 and close.shape[1] == 1:
-            close = close.squeeze(1)
-        if close.ndim != 1:
-            raise ValueError("window_close must have shape (W,) or (W, 1)")
+    def _standardize_channel(self, channel: torch.Tensor) -> torch.Tensor:
+        if channel.numel() <= 1:
+            return channel.clone()
+        deltas = channel[1:] - channel[:-1]
+        scale = torch.std(deltas, unbiased=False)
+        if not torch.isfinite(scale) or float(scale) <= self.eps:
+            return channel.clone()
+        return channel / scale
 
+    def build(
+        self,
+        window_data: np.ndarray | torch.Tensor | pd.DataFrame | Mapping[str, np.ndarray | torch.Tensor],
+    ) -> torch.Tensor:
+        channels = self._resolve_input_channels(window_data)
+        close = self._require_channel(channels, "close")
         close = torch.clamp(close, min=self.eps)
         log_close = torch.log(close)
         rel_logprice = log_close - log_close[0]
@@ -142,10 +219,27 @@ class PathBuilder:
             elif component == "rolling_vol":
                 window = self.embedding_options.get("rolling_vol", {}).get("window", self.rolling_mean_window)
                 features.append(self._rolling_std(logreturn, window=window))
-        return torch.stack(features, dim=-1)
+            elif component == "normalized_cumulative_volume":
+                volume = torch.clamp(self._require_channel(channels, "volume"), min=0.0)
+                total_volume = torch.clamp(volume.sum(), min=self.eps)
+                features.append(torch.cumsum(volume, dim=0) / total_volume)
+            elif component == "high_low_range":
+                high = torch.clamp(self._require_channel(channels, "high"), min=self.eps)
+                low = torch.clamp(self._require_channel(channels, "low"), min=self.eps)
+                features.append((high - low) / close)
+        if self.standardize_path_channels:
+            features = [self._standardize_channel(feature) for feature in features]
+        path = torch.stack(features, dim=-1)
+        if self.basepoint:
+            zero_row = torch.zeros((1, path.shape[1]), device=path.device, dtype=path.dtype)
+            path = torch.cat([zero_row, path], dim=0)
+        return path
 
-    def __call__(self, window_close: np.ndarray | torch.Tensor) -> torch.Tensor:
-        return self.build(window_close)
+    def __call__(
+        self,
+        window_data: np.ndarray | torch.Tensor | pd.DataFrame | Mapping[str, np.ndarray | torch.Tensor],
+    ) -> torch.Tensor:
+        return self.build(window_data)
 
 
 class LogSigTransformer:

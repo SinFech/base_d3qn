@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 import numpy as np
+import pandas as pd
 import torch
 
 from rl.features.signature import LogSigTransformer, PathBuilder
@@ -20,13 +21,20 @@ class SignatureObsWrapper:
         logsig_transformer: LogSigTransformer,
         add_position: bool = False,
         account_feature_keys: Optional[list[str]] = None,
+        subwindow_sizes: Optional[list[int]] = None,
     ) -> None:
         self.env = env
         self.path_builder = path_builder
         self.logsig_transformer = logsig_transformer
         self.add_position = add_position
         self.account_feature_keys = list(account_feature_keys or [])
-        self.obs_dim = self.logsig_transformer.obs_dim(self.path_builder.base_dim)
+        self.subwindow_sizes = [int(size) for size in (subwindow_sizes or [])]
+        if any(size < 2 for size in self.subwindow_sizes):
+            raise ValueError("signature.subwindow_sizes must contain values >= 2.")
+        if len(set(self.subwindow_sizes)) != len(self.subwindow_sizes):
+            raise ValueError("signature.subwindow_sizes must be unique.")
+        scale_count = len(self.subwindow_sizes) if self.subwindow_sizes else 1
+        self.obs_dim = self.logsig_transformer.obs_dim(self.path_builder.base_dim) * scale_count
         if self.add_position:
             self.obs_dim += 1
         self.obs_dim += len(self.account_feature_keys)
@@ -67,12 +75,49 @@ class SignatureObsWrapper:
             values.append(float(value))
         return np.asarray(values, dtype=np.float32)
 
+    def _extract_market_window(self):
+        if all(hasattr(self.env, attr) for attr in ("data", "t", "window_size")):
+            start = int(self.env.t) - (int(self.env.window_size) - 1)
+            end = int(self.env.t) + 1
+            window = self.env.data.iloc[start:end]
+            if len(window) == int(self.env.window_size):
+                return window
+        return self.env.get_state()
+
+    def _window_length(self, window) -> int:
+        if isinstance(window, pd.DataFrame):
+            return int(len(window))
+        if isinstance(window, dict):
+            if not window:
+                return 0
+            first = next(iter(window.values()))
+            return int(len(first))
+        return int(len(window))
+
+    def _slice_window(self, window, size: int):
+        if isinstance(window, pd.DataFrame):
+            return window.iloc[-size:].reset_index(drop=True)
+        if isinstance(window, dict):
+            return {key: value[-size:] for key, value in window.items()}
+        return window[-size:]
+
+    def _transform_window(self, raw_window) -> torch.Tensor:
+        sizes = self.subwindow_sizes or [self._window_length(raw_window)]
+        features = []
+        for size in sizes:
+            if size > self._window_length(raw_window):
+                raise ValueError(
+                    f"Subwindow size {size} exceeds current window length {self._window_length(raw_window)}."
+                )
+            path = self.path_builder(self._slice_window(raw_window, size))
+            features.append(self.logsig_transformer(path).reshape(-1))
+        return torch.cat(features, dim=0) if len(features) > 1 else features[0]
+
     def get_state(self) -> Optional[np.ndarray]:
-        raw = self.env.get_state()
+        raw = self._extract_market_window()
         if raw is None:
             return None
-        path = self.path_builder(raw)
-        logsig = self.logsig_transformer(path)
+        logsig = self._transform_window(raw)
         return self._to_numpy(logsig)
 
     def step(self, action):

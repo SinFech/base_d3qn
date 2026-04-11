@@ -86,6 +86,9 @@ class SignatureObsConfig:
     backend: str = "pysiglib"
     embedding: dict = field(default_factory=lambda: {"log_price": {}, "log_return": {}})
     rolling_mean_window: int = 5
+    standardize_path_channels: bool = False
+    basepoint: bool = False
+    subwindow_sizes: list[int] = field(default_factory=list)
     account_features: list[str] = field(default_factory=list)
     logsig: LogSigConfig = field(default_factory=LogSigConfig)
     torch: SignatureTorchConfig = field(default_factory=SignatureTorchConfig)
@@ -216,6 +219,9 @@ def config_from_dict(data: Dict) -> Config:
         backend=raw_signature.get("backend", "pysiglib"),
         embedding=raw_signature.get("embedding", {"log_price": {}, "log_return": {}}),
         rolling_mean_window=raw_signature.get("rolling_mean_window", 5),
+        standardize_path_channels=raw_signature.get("standardize_path_channels", False),
+        basepoint=raw_signature.get("basepoint", False),
+        subwindow_sizes=raw_signature.get("subwindow_sizes", []),
         account_features=raw_signature.get("account_features", []),
         logsig=LogSigConfig(**raw_logsig),
         torch=SignatureTorchConfig(**raw_signature_torch),

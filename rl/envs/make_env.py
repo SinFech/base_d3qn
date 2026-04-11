@@ -18,6 +18,44 @@ def _get_cfg_value(config, key: str, default=None):
     return getattr(config, key, default)
 
 
+def _parse_scaled_number(value) -> float:
+    if pd.isna(value):
+        return float("nan")
+    if isinstance(value, (int, float)):
+        return float(value)
+    text = str(value).strip().replace(",", "")
+    if not text or text in {"-", "--", "nan", "NaN", "None"}:
+        return float("nan")
+
+    percent = text.endswith("%")
+    if percent:
+        text = text[:-1]
+
+    multiplier = 1.0
+    suffix_map = {
+        "K": 1_000.0,
+        "M": 1_000_000.0,
+        "B": 1_000_000_000.0,
+        "T": 1_000_000_000_000.0,
+    }
+    suffix = text[-1:].upper()
+    if suffix in suffix_map:
+        multiplier = suffix_map[suffix]
+        text = text[:-1]
+
+    parsed = float(text) * multiplier
+    if percent:
+        parsed *= 0.01
+    return parsed
+
+
+def _parse_optional_numeric_column(df: pd.DataFrame, source: str, target: Optional[str] = None) -> None:
+    if source not in df.columns:
+        return
+    destination = target or source
+    df[destination] = df[source].map(_parse_scaled_number).astype(float)
+
+
 def load_price_data(
     path: Path,
     price_column: str = "Price",
@@ -26,7 +64,16 @@ def load_price_data(
 ) -> pd.DataFrame:
     df = pd.read_csv(path)
     df = df.rename(columns={price_column: close_column})
-    df[close_column] = df[close_column].astype(str).str.replace(",", "").astype(float)
+    _parse_optional_numeric_column(df, close_column)
+    _parse_optional_numeric_column(df, "Open")
+    _parse_optional_numeric_column(df, "High")
+    _parse_optional_numeric_column(df, "Low")
+    _parse_optional_numeric_column(df, "Vol.", "Volume")
+    _parse_optional_numeric_column(df, "Change %", "ChangePct")
+    if "Volume" in df.columns:
+        df["Volume"] = df["Volume"].fillna(0.0)
+    if "ChangePct" in df.columns:
+        df["ChangePct"] = df["ChangePct"].fillna(0.0)
     df[date_column] = pd.to_datetime(df[date_column])
     df = df.sort_values(by=date_column).reset_index(drop=True)
     return df
@@ -172,6 +219,8 @@ def make_env(
         path_builder = PathBuilder(
             embedding=_get_cfg_value(signature_cfg, "embedding", "price_return"),
             rolling_mean_window=_get_cfg_value(signature_cfg, "rolling_mean_window", 5),
+            standardize_path_channels=_get_cfg_value(signature_cfg, "standardize_path_channels", False),
+            basepoint=_get_cfg_value(signature_cfg, "basepoint", False),
             device=_get_cfg_value(torch_cfg, "device", "cpu"),
             dtype=_get_cfg_value(torch_cfg, "dtype", "float32"),
         )
@@ -194,6 +243,7 @@ def make_env(
             transformer,
             add_position=False,
             account_feature_keys=account_feature_keys,
+            subwindow_sizes=_get_cfg_value(signature_cfg, "subwindow_sizes", None),
         )
     elif obs_type == "raw":
         env.obs_dim = window_size
