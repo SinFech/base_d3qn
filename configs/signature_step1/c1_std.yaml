@@ -1,0 +1,112 @@
+# Step 1 candidate C1_std: per-channel standardization only.
+data:
+  path: data/Bitcoin History 2010-2024.csv
+  start_date: "2014-01-01"
+  end_date: "2020-12-31"
+  price_column: Price
+  close_column: Close
+  date_column: Date
+
+env:
+  reward: sr_enhanced
+  window_size: 24
+  trading_period: 500
+  train_split: 1.0
+  action_mode: discrete_capital
+  max_positions: null
+  max_exposure_ratio: 0.8
+  sell_mode: all
+  buy_fractions: [0.2, 0.4, 0.6, 0.8]
+  sell_fractions:
+  initial_capital: 100000.0
+  transaction_cost_bps: 10.0
+  slippage_bps: 2.0
+  invalid_sell_penalty: 0.1
+  blocked_trade_penalty: 0.02
+  min_hold_steps: 3
+  trade_cooldown_steps: 2
+  dynamic_exposure_enabled: true
+  dynamic_exposure_vol_window: 30
+  dynamic_exposure_min_scale: 0.4
+  dynamic_exposure_strength: 1.3
+  min_equity_ratio: 0.2
+  stop_on_bankruptcy: true
+  obs:
+    type: signature
+    signature:
+      backend: pysiglib
+      embedding:
+        log_price: {}
+        log_return: {}
+        rolling_vol:
+          window: 5
+      standardize_path_channels: true
+      account_features:
+        - cash_ratio
+        - position_ratio
+        - equity_return
+        - turnover_ratio
+      logsig:
+        degree: 3
+        method: 1
+        time_aug: true
+        lead_lag: false
+        end_time: 1.0
+      torch:
+        device: cpu
+        dtype: float32
+      perf:
+        n_jobs: -1
+        use_disk_prepare_cache: false
+        prepare_cache_dir: data/pysiglib_prepare_cache
+
+agent:
+  replay_mem_size: 100000
+  batch_size: 128
+  gamma: 0.99
+  eps_start: 1.0
+  eps_end: 0.08
+  eps_steps: 50000
+  learning_rate: 0.00015
+  input_dim: 24
+  hidden_dim: 120
+  action_number: 6
+  target_update: 10
+  model: ddqn
+  double: true
+  per_enabled: true
+  per_alpha: 0.6
+  per_beta_start: 0.6
+  per_beta_steps: 120000
+  per_eps: 0.000001
+  n_step: 3
+
+model:
+  type: conv_dueling
+  hidden_sizes: [256, 256]
+
+train:
+  num_episodes: 260
+  max_steps_per_episode:
+  max_total_steps: 100000
+  log_interval: 10
+  checkpoint_interval: 5
+  eval_epsilon: 0.0
+  resample_train_window_each_episode: true
+  eval_interval: 0
+  eval_episodes: 50
+  eval_seed: 20240101
+  plateau_threshold: 0.01
+  plateau_patience: 8
+
+eval:
+  num_episodes: 50
+  seed: 20240101
+  fixed_windows: true
+  fixed_windows_seed: 20240101
+  epsilon: 0.0
+  save_per_episode: true
+
+run:
+  seed: 42
+  device: auto
