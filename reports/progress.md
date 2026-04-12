@@ -103,3 +103,30 @@ This log tracks implementation milestones that materially changed model behavior
 - Next:
   - Keep `C4_hlrange` only as a robustness-oriented alternative branch if signature work continues.
   - Do not reopen other Step 1 signature candidates without a new scope note.
+
+## 2026-04-11
+- Summary: Completed a focused `rolling_vol.window` short sweep around the frozen baseline signature recipe.
+- Changes:
+  - Added the `configs/signature_step7/` family for `RV3`, `RV5`, `RV10`, and `RV20`.
+  - Ran the matched `f3` short-run comparison with `3` seeds under the same budget used by the earlier short-stage gate.
+  - Recorded the sweep outcome in `docs/signature/plan/step7_window_sweep_results.md`.
+- Key result:
+  - `RV10` (`rolling_vol.window = 10`) was the strongest non-default window on both primary short-run metrics.
+  - `RV20` also improved over `RV5`, but ranked below `RV10`.
+  - `RV3` underperformed the `RV5` control.
+- Next:
+  - Keep `RV10` as the single promoted follow-up if a later full official comparison is requested.
+  - Keep `window=5` as the default until such a full comparison is actually recorded.
+
+## 2026-04-11
+- Summary: Completed the full walk-forward evaluation for `RV10` against the official `rolling_vol.window=5` baseline.
+- Changes:
+  - Ran `RV10` over `f1/f2/f3` with `5` seeds per fold and merged the sub-fold outputs into `runs/step8_full_rv10/`.
+  - Recorded the final comparison in `docs/signature/plan/step8_full_results.md`.
+- Key result:
+  - `RV10` improved overall OOS Sharpe (`0.3132 -> 0.3404`) and worst-fold Sharpe (`-0.4965 -> -0.3168`).
+  - `RV10` regressed overall OOS Return (`45.2441% -> 39.6564%`) and underperformed baseline on `f2`.
+  - The default rolling-vol window remains `5`.
+- Next:
+  - Keep `RV10` only as a robustness-oriented alternative.
+  - Do not change the shipped default unless a later step prefers the robustness tradeoff over aggregate return.

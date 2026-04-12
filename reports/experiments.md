@@ -255,3 +255,114 @@ Per-fold headline deltas:
 - `runs/wf_rolling_long_oos_d3qn_6act_a06_n3_worstfold/summary_by_algo_fold.csv`
 - `runs/step5_full_c4_hlrange/summary_by_algo.csv`
 - `runs/step5_full_c4_hlrange/summary_by_algo_fold.csv`
+
+## I. 2026-04 Rolling-Vol Window Sweep
+
+This section records a narrow signature ablation that changed only the `rolling_vol.window` horizon
+inside the frozen baseline recipe.
+
+### I1. Protocol
+
+- Config family:
+  - `configs/signature_step7/rv3.yaml`
+  - `configs/signature_step7/rv5.yaml`
+  - `configs/signature_step7/rv10.yaml`
+  - `configs/signature_step7/rv20.yaml`
+- Runner:
+  - `scripts/walk_forward_protocol.py`
+- Fold protocol:
+  - `configs/folds_signature_step1_screen_f3.json`
+- Fold:
+  - `f3` only
+- Seeds:
+  - `42,43,44`
+- Budget:
+  - `train.num_episodes = 80`
+  - `train.max_total_steps = 30000`
+
+### I2. Short-run comparison
+
+| Candidate | `rolling_vol.window` | OOS Sharpe mean | OOS Return % mean |
+|---|---:|---:|---:|
+| `RV3` | `3` | `-0.4353` | `-15.7772` |
+| `RV5` | `5` | `-0.3872` | `-14.7716` |
+| `RV10` | `10` | `-0.3086` | `-12.0602` |
+| `RV20` | `20` | `-0.3214` | `-12.9860` |
+
+### I3. Interpretation
+
+- `RV10` was the strongest non-default window on both primary metrics.
+- `RV20` also beat the `RV5` control, but was weaker than `RV10`.
+- `RV3` lost to the control on both primary metrics.
+- Repository decision after this step:
+  - keep `window=5` as the default because the sweep was short-run only
+  - keep `RV10` as the single promoted follow-up candidate if a later full walk-forward comparison is requested
+
+### I4. Source files
+
+- `docs/signature/plan/step7_window_sweep_results.md`
+- `runs/step7_short_volwindow_f3/rv3/summary_by_algo.csv`
+- `runs/step7_short_volwindow_f3/rv5/summary_by_algo.csv`
+- `runs/step7_short_volwindow_f3/rv10/summary_by_algo.csv`
+- `runs/step7_short_volwindow_f3/rv20/summary_by_algo.csv`
+
+## J. 2026-04 `RV10` Full Walk-Forward Comparison
+
+This section records the full follow-up on the promoted Step 7 candidate:
+
+- `RV10`
+- `rolling_vol.window = 10`
+
+### J1. Protocol
+
+- Candidate:
+  - `configs/signature_step7/rv10.yaml`
+- Baseline control:
+  - `runs/wf_rolling_long_oos_d3qn_6act_a06_n3_worstfold`
+  - effective rolling-vol setting: `window = 5`
+- Runner:
+  - `scripts/walk_forward_protocol.py`
+- Folds:
+  - `configs/folds_rolling_long_oos.json`
+- Seeds:
+  - `42,43,44,45,46`
+- Output root:
+  - `runs/step8_full_rv10/`
+
+### J2. Aggregate comparison
+
+| Config | OOS Sharpe mean | OOS Return % mean | Worst-fold OOS Sharpe mean |
+|---|---:|---:|---:|
+| `baseline (RV5)` | `0.3132` | `45.2441` | `-0.4965` |
+| `RV10` | `0.3404` | `39.6564` | `-0.3168` |
+| delta (`RV10 - baseline`) | `+0.0272` | `-5.5877` | `+0.1798` |
+
+### J3. Per-fold comparison
+
+| Fold | Baseline OOS Sharpe | `RV10` OOS Sharpe | Delta Sharpe | Baseline OOS Return % | `RV10` OOS Return % | Delta Return % |
+|---|---:|---:|---:|---:|---:|---:|
+| `f1` | `0.8905` | `0.8853` | `-0.0052` | `85.8617` | `78.0882` | `-7.7735` |
+| `f2` | `0.5456` | `0.4525` | `-0.0931` | `67.4540` | `54.5574` | `-12.8966` |
+| `f3` | `-0.4965` | `-0.3168` | `+0.1798` | `-17.5835` | `-13.6764` | `+3.9071` |
+
+### J4. Interpretation
+
+- `RV10` improved overall OOS Sharpe and materially improved the worst fold.
+- `RV10` also improved both primary metrics on `f3`.
+- The cost of that robustness improvement was lower return:
+  - aggregate OOS Return regressed
+  - `f2` regressed on both primary metrics
+  - `f1` Sharpe was almost flat, but return was lower
+
+### J5. Repository decision
+
+- Keep `rolling_vol.window = 5` as the default.
+- Keep `RV10` only as an exploratory robustness branch.
+
+### J6. Source files
+
+- `docs/signature/plan/step8_full_results.md`
+- `runs/wf_rolling_long_oos_d3qn_6act_a06_n3_worstfold/summary_by_algo.csv`
+- `runs/wf_rolling_long_oos_d3qn_6act_a06_n3_worstfold/summary_by_algo_fold.csv`
+- `runs/step8_full_rv10/summary_by_algo.csv`
+- `runs/step8_full_rv10/summary_by_algo_fold.csv`

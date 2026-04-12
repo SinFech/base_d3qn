@@ -22,8 +22,10 @@ See `AGENTS.md` in this directory for the operating rules of the planning worksp
 | [Step 4](./step4.md) | Run Short Training and Stability Sweeps | Done | Use short runs to filter weak candidates before full evaluation. |
 | [Step 5](./step5.md) | Run Full Training and Evaluation on Final Candidates | Done | Compare the strongest candidates under the shared evaluation protocol. |
 | [Step 6](./step6.md) | Write Adoption Recommendation and Default Decision | Done | Decide which signature options should remain exploratory and which should be promoted. |
+| [Step 7](./step7.md) | Sweep Rolling-Vol Window Length | Done | Test whether alternative `rolling_vol.window` horizons outperform the current `window=5` baseline. |
+| [Step 8](./step8.md) | Run Full Walk-Forward Comparison for `RV10` | Done | Determine whether the promoted `rolling_vol.window=10` candidate is strong enough to replace the current default. |
 
 ## Current Focus
 
 - Active step: `None`
-- Immediate objective: Signature Step 6 is complete; baseline stays default and `C4_hlrange` remains an exploratory robustness branch
+- Immediate objective: Step 8 is complete; `RV10` remains exploratory and `rolling_vol.window = 5` stays the default
