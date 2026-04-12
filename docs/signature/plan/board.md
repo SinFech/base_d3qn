@@ -26,8 +26,10 @@ See `AGENTS.md` in this directory for the operating rules of the planning worksp
 | [Step 8](./step8.md) | Run Full Walk-Forward Comparison for `RV10` | Done | Determine whether the promoted `rolling_vol.window=10` candidate is strong enough to replace the current default. |
 | [Step 9](./step9.md) | Run an `f1`-Only Specialist Search | Done | Search for a signature configuration that improves only the `f1` OOS Sharpe and OOS Return targets. |
 | [Step 10](./step10.md) | Validate Single-Seed `f1` Cherry Picks | Done | Test whether the strongest Step 9 short-run single-seed wins survive under matched single-seed full runs. |
+| [Step 11](./step11.md) | Search `f1` Cherry Picks via Embedding Reduction | Done | Test whether removing baseline embedding channels creates stronger `f1` cherry-pick behavior. |
+| [Step 12](./step12.md) | Search `f1` Cherry Picks via Embedding Replacement | Done | Test whether one-for-one channel replacements outperform the current baseline embedding on `f1` cherry-pick criteria. |
 
 ## Current Focus
 
-- Active step: `None`
-- Immediate objective: `Step 10` is complete; no further signature step is currently active
+- Active step: none
+- Immediate objective: decide whether the new `f1` specialist cherry-pick branches deserve any follow-up scope

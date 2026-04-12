@@ -157,3 +157,27 @@ This log tracks implementation milestones that materially changed model behavior
 - Next:
   - Treat Step 10 as a negative robustness check on short-run cherry-pick signals.
   - Do not promote any Step 10 candidate beyond exploratory note status.
+
+## 2026-04-12
+- Summary: Completed the embedding-reduction and embedding-replacement `f1` specialist branches and identified two same-seed full-run winners.
+- Changes:
+  - Added `configs/signature_step11/` and `configs/signature_step12/` for strict reduction and one-for-one replacement families.
+  - Ran the Step 11 and Step 12 `f1` short screens against the shared Step 9 short baseline control.
+  - Recorded the short results in:
+    - `docs/signature/plan/step11_reduction_short_results.md`
+    - `docs/signature/plan/step12_replacement_short_results.md`
+  - Completed the promoted single-seed full follow-ups and recorded the results in:
+    - `docs/signature/plan/step11_reduction_single_seed_full_results.md`
+    - `docs/signature/plan/step12_replacement_single_seed_full_results.md`
+- Key result:
+  - Step 11 reduction branch:
+    - single-channel reductions were structurally infeasible under the frozen baseline backbone
+    - `D3_return_vol5 seed42` survived as a strict full-run two-metric winner
+    - `D3_return_vol5 seed43` preserved Sharpe only
+    - `D2_price_vol5 seed44` failed under full follow-up
+  - Step 12 replacement branch:
+    - `R5_volprof_for_return seed42` survived as a strict full-run two-metric winner
+    - no other replacement candidate earned follow-up status
+- Next:
+  - Keep `D3_return_vol5 seed42` and `R5_volprof_for_return seed42` only as `f1` specialist notes.
+  - Do not reinterpret these same-seed wins as repository-wide default changes without a new multi-seed scope.

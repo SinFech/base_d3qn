@@ -529,3 +529,91 @@ Repository interpretation:
 - `docs/signature/plan/step10.md`
 - `docs/signature/plan/step10_single_seed_full_results.md`
 - `runs/step10_single_seed_f1/`
+
+## M. 2026-04 Embedding Reduction and Replacement Cherry-Picks
+
+This section records the two follow-up branches that focused only on `f1` cherry-pick behavior:
+
+- Step 11: strict reductions of the baseline path embedding
+- Step 12: one-for-one channel replacements within the baseline path embedding
+
+Both branches reused the Step 9 `existing` short-run baseline control:
+
+- `f1` OOS Sharpe mean `0.8925`
+- `f1` OOS Return % mean `128.8697`
+
+### M1. Step 11 reduction branch
+
+Short-screen outcome:
+
+| Candidate | Status | `f1` OOS Sharpe mean | `f1` OOS Return % mean | Promoted seeds |
+|---|---|---:|---:|---|
+| `D1_price_return` | executed | `0.7258` | `71.4326` | none |
+| `D2_price_vol5` | executed | `0.7711` | `93.5407` | `44` |
+| `D3_return_vol5` | executed | `0.9324` | `127.2506` | `42,43` |
+| `D4_price_only` | infeasible | n/a | n/a | n/a |
+| `D5_return_only` | infeasible | n/a | n/a | n/a |
+| `D6_vol5_only` | infeasible | n/a | n/a | n/a |
+
+Structural note:
+
+- `D4-D6` reduced the observation to `obs_dim = 9`
+- the unchanged `ConvDuelingDQN` backbone then failed with a negative-dimension linear layer error
+
+Full same-seed follow-up:
+
+| Candidate-seed pair | Baseline seed | Candidate `f1` Sharpe | Baseline `f1` Sharpe | Delta Sharpe | Candidate `f1` Return % | Baseline `f1` Return % | Delta Return % |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `D2_price_vol5 seed44` | `44` | `0.7556` | `0.8772` | `-0.1217` | `77.1807` | `132.5071` | `-55.3263` |
+| `D3_return_vol5 seed42` | `42` | `0.8227` | `0.7003` | `+0.1224` | `108.3174` | `69.2750` | `+39.0424` |
+| `D3_return_vol5 seed43` | `43` | `0.9157` | `0.8882` | `+0.0275` | `103.6459` | `142.2286` | `-38.5827` |
+
+Reduction-branch interpretation:
+
+- `D3_return_vol5 seed42` survived as a strict same-seed two-metric winner.
+- `D3_return_vol5 seed43` preserved Sharpe-only upside.
+- `D2_price_vol5 seed44` failed cleanly in the full follow-up.
+
+### M2. Step 12 replacement branch
+
+Short-screen outcome:
+
+| Candidate | `f1` OOS Sharpe mean | `f1` OOS Return % mean | Promoted seeds |
+|---|---:|---:|---|
+| `R1_hl_for_price` | `0.7980` | `95.6912` | none |
+| `R2_hl_for_return` | `0.8577` | `90.0432` | none |
+| `R3_hl_for_vol5` | `0.8791` | `115.3303` | none |
+| `R4_volprof_for_price` | `0.8873` | `117.5257` | none |
+| `R5_volprof_for_return` | `0.8380` | `90.6803` | `42` |
+| `R6_volprof_for_vol5` | `0.8761` | `82.5308` | none |
+
+Full same-seed follow-up:
+
+| Candidate-seed pair | Baseline seed | Candidate `f1` Sharpe | Baseline `f1` Sharpe | Delta Sharpe | Candidate `f1` Return % | Baseline `f1` Return % | Delta Return % |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `R5_volprof_for_return seed42` | `42` | `0.8358` | `0.7003` | `+0.1355` | `95.9919` | `69.2750` | `+26.7168` |
+
+Replacement-branch interpretation:
+
+- `R5_volprof_for_return seed42` survived as a strict same-seed two-metric winner.
+- No other replacement candidate earned follow-up status.
+
+### M3. Repository interpretation
+
+- Step 11 and Step 12 both found narrow `f1` specialist branches that can beat the matched baseline on the right seed.
+- The strongest surviving same-seed winners were:
+  - `D3_return_vol5 seed42`
+  - `R5_volprof_for_return seed42`
+- These are still specialist notes, not repository-wide defaults.
+- Default signature decisions from Steps 6 and 8 remain unchanged.
+
+### M4. Source files
+
+- `docs/signature/plan/step11_reduction_short_results.md`
+- `docs/signature/plan/step11_reduction_single_seed_full_results.md`
+- `docs/signature/plan/step12_replacement_short_results.md`
+- `docs/signature/plan/step12_replacement_single_seed_full_results.md`
+- `runs/step11_f1_reduction_short/`
+- `runs/step11_f1_reduction_single_seed_full/`
+- `runs/step12_f1_replacement_short/`
+- `runs/step12_f1_replacement_single_seed_full/`

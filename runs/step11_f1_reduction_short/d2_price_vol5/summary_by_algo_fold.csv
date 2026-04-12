@@ -1,0 +1,2 @@
+algo,fold_id,runs,oos_sharpe_mean,oos_sharpe_std,oos_return_pct_mean,oos_return_pct_std,oos_reward_mean,oos_reward_std,is_sharpe_mean,is_sharpe_std
+d3qn,f1,3,0.7710840575715086,0.21509929600824318,93.54070726867586,64.57375108381375,-1.2089704329062074,0.7757334538249032,0.7989362791871973,0.0859240588407121
