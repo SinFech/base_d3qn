@@ -89,3 +89,17 @@ This log tracks implementation milestones that materially changed model behavior
 - Next:
   - Use `6-action sell_fractions` as the D3QN reference branch.
   - Compare `6-action` vs `8-action` only under matched risk budgets if action-space expansion is revisited.
+
+## 2026-04-11
+- Summary: Completed the signature-component exploration pass against the frozen D3QN baseline and recorded the default-config decision.
+- Changes:
+  - Finished Step 1 candidate freeze and created the `configs/signature_step1/` config family.
+  - Completed `f3` screening, runtime checks, short-run gate, and full walk-forward evaluation for the surviving signature candidate.
+  - Added `scripts/benchmark_signature_wrapper.py` to benchmark the real `SignatureObsWrapper -> get_state()` observation path.
+  - Recorded the final signature recommendation in `docs/signature/plan/step6_recommendation.md`.
+- Key result:
+  - `C4_hlrange` improved hardest-fold robustness (`f3`) but regressed aggregate OOS Sharpe and OOS Return versus the baseline.
+  - Baseline remains the default D3QN signature recipe.
+- Next:
+  - Keep `C4_hlrange` only as a robustness-oriented alternative branch if signature work continues.
+  - Do not reopen other Step 1 signature candidates without a new scope note.

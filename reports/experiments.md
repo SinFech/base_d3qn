@@ -183,3 +183,75 @@ This section keeps the latest D3QN action-space study while retaining the older 
 - Keep `6-action sell_fractions` as the current D3QN branch to compare against PPO.
 - Treat `7-action` and `8-action` as informative negative controls: useful for understanding aggressiveness, but not the primary deployment candidate.
 - If D3QN iteration continues, prioritize risk-budget sweeps on the `6-action` branch instead of further action expansion.
+
+## H. 2026-04 Signature Exploration Update
+
+This section records the dedicated signature-component sweep that branched from the frozen D3QN baseline
+`configs/d3qn_signature_capital_6act_per06_n3_worstfold.yaml`.
+
+### H1. Candidate funnel
+
+- Step 1 candidate family:
+  - `C1_std`
+  - `C2_bp`
+  - `C3_volprof`
+  - `C4_hlrange`
+  - `C5_multi`
+  - `C6_deg4`
+  - `B1_explore`
+- Shortlist after Step 1 `f3` screening:
+  - `C1_std`
+  - `C4_hlrange`
+- Survivor after runtime and short-run gate:
+  - `C4_hlrange`
+
+### H2. Full evaluation result
+
+Protocol:
+
+- Runner: `scripts/walk_forward_protocol.py`
+- Folds: `configs/folds_rolling_long_oos.json`
+- Seeds: `42,43,44,45,46`
+- Baseline control:
+  - `runs/wf_rolling_long_oos_d3qn_6act_a06_n3_worstfold`
+- Candidate:
+  - `runs/step5_full_c4_hlrange`
+
+Aggregate comparison:
+
+| Config | OOS Sharpe mean | OOS Return % mean | Worst-fold OOS Sharpe mean |
+|---|---:|---:|---:|
+| `baseline` | `0.3132` | `45.2441` | `-0.4965` |
+| `C4_hlrange` | `0.2468` | `33.3150` | `-0.3281` |
+| delta (`C4_hlrange - baseline`) | `-0.0664` | `-11.9291` | `+0.1685` |
+
+Per-fold headline deltas:
+
+- `f1`:
+  - Sharpe `-0.1261`
+  - Return `+1.8024`
+- `f2`:
+  - Sharpe `-0.2416`
+  - Return `-42.1925`
+- `f3`:
+  - Sharpe `+0.1685`
+  - Return `+4.6029`
+
+### H3. Interpretation
+
+- `C4_hlrange` improved the hardest fold and therefore remains a defensible robustness-oriented branch.
+- It did not earn default promotion because aggregate OOS Sharpe and OOS Return both regressed, with a large `f2` penalty.
+- Repository decision:
+  - keep baseline as the default D3QN signature recipe
+  - keep `C4_hlrange` only as an exploratory alternative
+
+### H4. Source files
+
+- `docs/signature/plan/step3_runtime_results.md`
+- `docs/signature/plan/step4_short_results.md`
+- `docs/signature/plan/step5_full_results.md`
+- `docs/signature/plan/step6_recommendation.md`
+- `runs/wf_rolling_long_oos_d3qn_6act_a06_n3_worstfold/summary_by_algo.csv`
+- `runs/wf_rolling_long_oos_d3qn_6act_a06_n3_worstfold/summary_by_algo_fold.csv`
+- `runs/step5_full_c4_hlrange/summary_by_algo.csv`
+- `runs/step5_full_c4_hlrange/summary_by_algo_fold.csv`
