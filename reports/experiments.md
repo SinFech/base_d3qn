@@ -366,3 +366,166 @@ This section records the full follow-up on the promoted Step 7 candidate:
 - `runs/wf_rolling_long_oos_d3qn_6act_a06_n3_worstfold/summary_by_algo_fold.csv`
 - `runs/step8_full_rv10/summary_by_algo.csv`
 - `runs/step8_full_rv10/summary_by_algo_fold.csv`
+
+## K. 2026-04 `f1`-Only Specialist Search
+
+This section records the Step 9 branch that intentionally ignored `f2`, `f3`, and aggregate OOS
+and optimized only the `f1` out-of-sample metrics.
+
+### K1. Short-screen protocol
+
+- Runner:
+  - `scripts/walk_forward_protocol.py`
+- Fold protocol:
+  - `configs/folds_signature_step9_f1.json`
+- Fold:
+  - `f1` only
+- Seeds:
+  - `42,43,44`
+- Budget:
+  - `train.num_episodes = 80`
+  - `train.max_total_steps = 30000`
+- Eval episodes:
+  - `50`
+- Batches:
+  - `existing`
+    - baseline plus reopened implemented candidates
+  - `combos`
+    - baseline plus the Step 9 combination shortlist
+
+### K2. Short-screen results
+
+`existing` batch:
+
+| Candidate | `f1` OOS Sharpe mean | `f1` OOS Return % mean |
+|---|---:|---:|
+| `baseline` | `0.8925` | `128.8697` |
+| `RV10` | `0.9131` | `84.0532` |
+| `C6_deg4` | `0.9040` | `79.7812` |
+| `RV20` | `0.9036` | `79.5530` |
+| `C3_volprof` | `0.8710` | `66.6003` |
+| `C5_multi` | `0.8486` | `97.4013` |
+| `C2_bp` | `0.8442` | `96.9628` |
+| `C4_hlrange` | `0.8342` | `106.8047` |
+| `C1_std` | `0.8217` | `56.6999` |
+| `B1_explore` | `0.6800` | `64.8236` |
+
+`combos` batch:
+
+| Candidate | `f1` OOS Sharpe mean | `f1` OOS Return % mean |
+|---|---:|---:|
+| `F1_hlrange_rv10` | `0.8957` | `91.5247` |
+| `baseline` | `0.8885` | `72.2245` |
+| `F1_std_rv10` | `0.8210` | `69.7954` |
+| `F1_std_hlrange_rv10` | `0.8160` | `66.5855` |
+| `F1_std_hlrange` | `0.7997` | `48.1886` |
+
+Short-screen interpretation:
+
+- No reopened singleton candidate beat the matched `existing` control strongly enough to earn promotion.
+- `F1_hlrange_rv10` was the only combination candidate that improved both `f1` primary metrics against its matched `combos` baseline.
+- Step 9 promotion decision:
+  - promote only `F1_hlrange_rv10` into a full `f1` follow-up
+
+### K3. Full `f1` follow-up
+
+Candidate:
+
+- `configs/signature_step9/f1_hlrange_rv10.yaml`
+
+Protocol:
+
+- fold:
+  - `f1` only
+- seeds:
+  - `42,43,44,45,46`
+- full budget family:
+  - config default (`260` episodes, `100000` max total steps)
+- execution detail:
+  - launched as five parallel single-seed runs
+  - merged into `runs/step9_f1_full/f1_hlrange_rv10/`
+
+Full comparison versus the official baseline `f1` result:
+
+| Config | `f1` OOS Sharpe mean | `f1` OOS Return % mean |
+|---|---:|---:|
+| baseline | `0.8905` | `85.8617` |
+| `F1_hlrange_rv10` | `0.9072` | `84.7223` |
+| delta (`candidate - baseline`) | `+0.0168` | `-1.1393` |
+
+### K4. Interpretation
+
+- Step 9 did not find a full-run `f1` candidate that clearly improved both primary metrics at once.
+- `F1_hlrange_rv10` was still the strongest specialist discovered in this branch:
+  - it improved `f1` OOS Sharpe
+  - it gave up only `1.1393` return percentage points versus the official baseline
+- Repository interpretation:
+  - keep the official baseline as the best two-metric `f1` reference
+  - keep `F1_hlrange_rv10` only as an `f1` Sharpe-tilted specialist branch
+
+### K5. Source files
+
+- `docs/signature/plan/step9_f1_short_results.md`
+- `docs/signature/plan/step9_f1_full_results.md`
+- `runs/step9_f1_short/existing/`
+- `runs/step9_f1_short/combos/`
+- `runs/step9_f1_full/f1_hlrange_rv10/summary_by_algo.csv`
+- `runs/step9_f1_full/f1_hlrange_rv10/summary_by_algo_fold.csv`
+- `runs/wf_rolling_long_oos_d3qn_6act_a06_n3_worstfold/summary_by_algo_fold.csv`
+
+## L. 2026-04 Single-Seed Cherry-Pick Validation
+
+This section records a narrow robustness check on the Step 9 short-run cherry-pick signals.
+
+### L1. Promotion rule
+
+Promote only short-run `(candidate, seed)` pairs where the same seed beat the matched Step 9 batch baseline
+on both:
+
+- `f1` OOS Sharpe
+- `f1` OOS Return
+
+Promoted set:
+
+| Candidate | Seed | Batch |
+|---|---:|---|
+| `C2_bp` | `44` | `existing` |
+| `F1_std_rv10` | `42` | `combos` |
+| `F1_std_hlrange_rv10` | `42` | `combos` |
+| `F1_hlrange_rv10` | `43` | `combos` |
+
+Matched baseline controls:
+
+- baseline seed `42`
+- baseline seed `43`
+- baseline seed `44`
+
+### L2. Full same-seed comparison
+
+| Candidate-seed pair | Matched baseline seed | Candidate `f1` Sharpe | Baseline `f1` Sharpe | Delta Sharpe | Candidate `f1` Return % | Baseline `f1` Return % | Delta Return % |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `C2_bp seed44` | `44` | `0.8799` | `0.8772` | `+0.0026` | `94.4002` | `132.5071` | `-38.1069` |
+| `F1_std_rv10 seed42` | `42` | `0.8404` | `0.7003` | `+0.1400` | `56.0134` | `69.2750` | `-13.2616` |
+| `F1_std_hlrange_rv10 seed42` | `42` | `0.5508` | `0.7003` | `-0.1495` | `37.3408` | `69.2750` | `-31.9342` |
+| `F1_hlrange_rv10 seed43` | `43` | `0.8498` | `0.8882` | `-0.0384` | `124.9049` | `142.2286` | `-17.3237` |
+
+### L3. Interpretation
+
+- None of the promoted Step 9 cherry picks remained a same-seed full-run winner on both primary metrics.
+- Two candidates preserved Sharpe-only upside:
+  - `C2_bp seed44`
+  - `F1_std_rv10 seed42`
+- The other two candidates lost cleanly against their matched baseline seeds:
+  - `F1_std_hlrange_rv10 seed42`
+  - `F1_hlrange_rv10 seed43`
+
+Repository interpretation:
+
+- Step 10 is a negative robustness check on short-run single-seed cherry picks.
+- Short-run cherry-pick signals in this branch were not strong enough to justify any promotion beyond exploratory note status.
+
+### L4. Source files
+
+- `docs/signature/plan/step10.md`
+- `docs/signature/plan/step10_single_seed_full_results.md`
+- `runs/step10_single_seed_f1/`

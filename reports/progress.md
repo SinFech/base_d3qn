@@ -130,3 +130,30 @@ This log tracks implementation milestones that materially changed model behavior
 - Next:
   - Keep `RV10` only as a robustness-oriented alternative.
   - Do not change the shipped default unless a later step prefers the robustness tradeoff over aggregate return.
+
+## 2026-04-12
+- Summary: Completed the Step 9 `f1`-only specialist search and recorded the best `f1` follow-up branch.
+- Changes:
+  - Reopened the full implemented signature-candidate universe under an `f1`-only short-screen protocol.
+  - Added the `configs/signature_step9/` combination configs and ran the `existing` and `combos` short-screen batches under `configs/folds_signature_step9_f1.json`.
+  - Promoted only `F1_hlrange_rv10` from the short screen and completed its full `5`-seed `f1` follow-up.
+  - Merged the parallel seed-level full outputs into `runs/step9_f1_full/f1_hlrange_rv10/`.
+- Key result:
+  - No candidate improved both full-run `f1` primary metrics at the same time.
+  - `F1_hlrange_rv10` improved `f1` OOS Sharpe (`0.8905 -> 0.9072`) but slightly regressed `f1` OOS Return (`85.8617% -> 84.7223%`).
+- Next:
+  - Keep the official baseline as the best two-metric `f1` reference.
+  - Keep `F1_hlrange_rv10` only as an `f1` Sharpe-tilted specialist branch if that narrower objective is revisited.
+
+## 2026-04-12
+- Summary: Validated the strongest Step 9 short-run single-seed cherry picks with matched single-seed full `f1` runs.
+- Changes:
+  - Added `docs/signature/plan/step10.md` and executed four promoted `(candidate, seed)` follow-ups plus matched baseline seeds.
+  - Recorded the same-seed full-run comparison in `docs/signature/plan/step10_single_seed_full_results.md`.
+  - Kept all Step 10 outputs under `runs/step10_single_seed_f1/`.
+- Key result:
+  - No promoted cherry-pick candidate remained a same-seed two-metric winner under full training.
+  - `C2_bp seed44` and `F1_std_rv10 seed42` preserved Sharpe gains only, while `F1_hlrange_rv10 seed43` and `F1_std_hlrange_rv10 seed42` lost on both metrics versus their matched baseline seeds.
+- Next:
+  - Treat Step 10 as a negative robustness check on short-run cherry-pick signals.
+  - Do not promote any Step 10 candidate beyond exploratory note status.

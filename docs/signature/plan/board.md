@@ -24,8 +24,10 @@ See `AGENTS.md` in this directory for the operating rules of the planning worksp
 | [Step 6](./step6.md) | Write Adoption Recommendation and Default Decision | Done | Decide which signature options should remain exploratory and which should be promoted. |
 | [Step 7](./step7.md) | Sweep Rolling-Vol Window Length | Done | Test whether alternative `rolling_vol.window` horizons outperform the current `window=5` baseline. |
 | [Step 8](./step8.md) | Run Full Walk-Forward Comparison for `RV10` | Done | Determine whether the promoted `rolling_vol.window=10` candidate is strong enough to replace the current default. |
+| [Step 9](./step9.md) | Run an `f1`-Only Specialist Search | Done | Search for a signature configuration that improves only the `f1` OOS Sharpe and OOS Return targets. |
+| [Step 10](./step10.md) | Validate Single-Seed `f1` Cherry Picks | Done | Test whether the strongest Step 9 short-run single-seed wins survive under matched single-seed full runs. |
 
 ## Current Focus
 
 - Active step: `None`
-- Immediate objective: Step 8 is complete; `RV10` remains exploratory and `rolling_vol.window = 5` stays the default
+- Immediate objective: `Step 10` is complete; no further signature step is currently active
