@@ -17,13 +17,13 @@ See `AGENTS.md` in this directory for the operating rules of the planning worksp
 |---|---|---|---|
 | [Step 0](./step0.md) | Measure Baseline Metrics | Done | Measure and record the baseline metrics that later signature candidates will be compared against. |
 | [Step 1](./step1.md) | Freeze Candidate Signature Upgrade Set | Done | Lock the set of improvements that are worth testing in this repository. |
-| [Step 2](./step2.md) | Define Benchmark Matrix and Acceptance Criteria | Planned | Define which configs, metrics, and thresholds will be used for comparison. |
-| [Step 3](./step3.md) | Measure Feature-Extraction Runtime and Observation Cost | Planned | Benchmark observation dimension and signature extraction cost for each candidate setup. |
-| [Step 4](./step4.md) | Run Short Training and Stability Sweeps | Planned | Use short runs to filter weak candidates before full evaluation. |
-| [Step 5](./step5.md) | Run Full Training and Evaluation on Final Candidates | Planned | Compare the strongest candidates under the shared evaluation protocol. |
+| [Step 2](./step2.md) | Define Benchmark Matrix and Acceptance Criteria | Done | Define which configs, metrics, and thresholds will be used for comparison. |
+| [Step 3](./step3.md) | Measure Feature-Extraction Runtime and Observation Cost | Done | Benchmark observation dimension and signature extraction cost for each candidate setup. |
+| [Step 4](./step4.md) | Run Short Training and Stability Sweeps | Done | Use short runs to filter weak candidates before full evaluation. |
+| [Step 5](./step5.md) | Run Full Training and Evaluation on Final Candidates | Done | Compare the strongest candidates under the shared evaluation protocol. |
 | [Step 6](./step6.md) | Write Adoption Recommendation and Default Decision | Planned | Decide which signature options should remain exploratory and which should be promoted. |
 
 ## Current Focus
 
 - Active step: `None`
-- Immediate objective: Step 2 can now define the benchmark matrix directly from the frozen candidate inventory and materialized config family
+- Immediate objective: Step 6 can now decide whether `C4_hlrange` should remain an alternative branch or be promoted over the baseline
