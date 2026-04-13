@@ -28,8 +28,12 @@ See `AGENTS.md` in this directory for the operating rules of the planning worksp
 | [Step 10](./step10.md) | Validate Single-Seed `f1` Cherry Picks | Done | Test whether the strongest Step 9 short-run single-seed wins survive under matched single-seed full runs. |
 | [Step 11](./step11.md) | Search `f1` Cherry Picks via Embedding Reduction | Done | Test whether removing baseline embedding channels creates stronger `f1` cherry-pick behavior. |
 | [Step 12](./step12.md) | Search `f1` Cherry Picks via Embedding Replacement | Done | Test whether one-for-one channel replacements outperform the current baseline embedding on `f1` cherry-pick criteria. |
+| [Step 13](./step13.md) | Sweep `rolling_vol.window` on the `D5` Return Base | Done | Test which `rolling_vol.window` horizon works best when `log_return` is the only non-volatility path signal. |
+| [Step 14](./step14.md) | Reopen Replacement Candidates Blocked by Scope Gates | Done | Re-test replacement-style embedding candidates that were previously excluded by scope rather than by a clear negative result. |
+| [Step 15](./step15.md) | Validate the Encoder Bottleneck Hypothesis | Done | Test whether switching from `ConvDuelingDQN` to `MLPDuelingDQN` unlocks stronger `f1` performance for the main specialist signature candidates. |
+| [Step 16](./step16.md) | Sweep `logsig.degree` on the Frozen Baseline Embedding | Done | Test whether lower or higher signature truncation levels outperform the current `degree=3` setting on the `f1` specialist objective. |
 
 ## Current Focus
 
 - Active step: none
-- Immediate objective: decide whether the new `f1` specialist cherry-pick branches deserve any follow-up scope
+- Immediate objective: decide whether any follow-up should target a larger signature-capacity branch or stop the degree line here

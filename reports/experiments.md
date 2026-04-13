@@ -617,3 +617,367 @@ Replacement-branch interpretation:
 - `runs/step11_f1_reduction_single_seed_full/`
 - `runs/step12_f1_replacement_short/`
 - `runs/step12_f1_replacement_single_seed_full/`
+
+## N. 2026-04 Return-Vol Window Sweep on the `D5` Base
+
+This section records the Step 13 follow-up that treated `D5_return_only` as a conceptual base
+and asked which `rolling_vol.window` works best when paired only with `log_return`.
+
+### N1. Family definition
+
+Executable family:
+
+- `log_return`
+- `rolling_vol(window=k)`
+
+Candidates:
+
+| Candidate | Window |
+|---|---:|
+| `DW3_return_vol3` | `3` |
+| `DW5_return_vol5` | `5` |
+| `DW10_return_vol10` | `10` |
+| `DW20_return_vol20` | `20` |
+
+Structural note:
+
+- the true one-channel `D5_return_only` embedding remained infeasible under the frozen backbone
+- Step 13 therefore reused `DW5_return_vol5` as the executable family control
+
+### N2. Short-screen protocol
+
+- Runner:
+  - `scripts/walk_forward_protocol.py`
+- Fold protocol:
+  - `configs/folds_signature_step9_f1.json`
+- Fold:
+  - `f1` only
+- Seeds:
+  - `42,43,44`
+- Budget:
+  - `train.num_episodes = 80`
+  - `train.max_total_steps = 30000`
+- Promotion rule:
+  - candidate-seed must beat the matched `DW5_return_vol5` seed on both:
+    - `f1` OOS Sharpe
+    - `f1` OOS Return %
+
+### N3. Short-screen result
+
+| Candidate | `f1` OOS Sharpe mean | `f1` OOS Return % mean | Delta Sharpe vs `DW5` | Delta Return % vs `DW5` | Promoted seeds |
+|---|---:|---:|---:|---:|---|
+| `DW5_return_vol5` | `0.9324` | `127.2506` | `0.0000` | `0.0000` | control |
+| `DW20_return_vol20` | `0.8733` | `75.1748` | `-0.0591` | `-52.0758` | none |
+| `DW3_return_vol3` | `0.8183` | `99.2355` | `-0.1141` | `-28.0151` | none |
+| `DW10_return_vol10` | `0.7878` | `82.6008` | `-0.1446` | `-44.6497` | none |
+
+Closest miss:
+
+- `DW20 seed42`
+  - Sharpe beat `DW5 seed42` by `+0.0185`
+  - Return still lagged by `-3.2049` percentage points
+
+### N4. Interpretation
+
+- No alternative window displaced `DW5_return_vol5`.
+- Within this return-vol family, `window=5` remained the strongest executable horizon.
+- Step 13 therefore produced no promoted candidate and no new full-run winner.
+
+### N5. Source files
+
+- `docs/signature/plan/step13_window_short_results.md`
+- `docs/signature/plan/step13_window_single_seed_full_results.md`
+- `runs/step13_f1_return_vol_window_short/`
+
+## O. 2026-04 Replacement Reopen for the Missing `rolling_mean` Family
+
+This section records the Step 14 follow-up that reopened the only major implemented replacement family
+that had not yet entered the formal replacement protocol.
+
+### O1. Candidate family
+
+Baseline path embedding:
+
+- `log_price`
+- `log_return`
+- `rolling_vol(window=5)`
+
+Reopened replacement candidates:
+
+| Candidate | Replacement interpretation |
+|---|---|
+| `RM1_mean_for_price` | replace `log_price` with `rolling_mean(window=5)` |
+| `RM2_mean_for_return` | replace `log_return` with `rolling_mean(window=5)` |
+| `RM3_mean_for_vol5` | replace `rolling_vol(window=5)` with `rolling_mean(window=5)` |
+
+### O2. Short-screen protocol
+
+- Runner:
+  - `scripts/walk_forward_protocol.py`
+- Fold protocol:
+  - `configs/folds_signature_step9_f1.json`
+- Fold:
+  - `f1` only
+- Seeds:
+  - `42,43,44`
+- Budget:
+  - `train.num_episodes = 80`
+  - `train.max_total_steps = 30000`
+- Promotion rule:
+  - candidate-seed must beat the matched baseline seed on both:
+    - `f1` OOS Sharpe
+    - `f1` OOS Return %
+
+Baseline control reused from Step 9:
+
+- mean `f1` OOS Sharpe = `0.8925`
+- mean `f1` OOS Return % = `128.8697`
+
+### O3. Short-screen result
+
+| Candidate | `f1` OOS Sharpe mean | `f1` OOS Return % mean | Delta Sharpe vs baseline | Delta Return % vs baseline | Promoted seeds |
+|---|---:|---:|---:|---:|---|
+| `RM1_mean_for_price` | `0.7813` | `91.2854` | `-0.1112` | `-37.5843` | none |
+| `RM2_mean_for_return` | `0.8776` | `92.5916` | `-0.0149` | `-36.2780` | none |
+| `RM3_mean_for_vol5` | `0.7480` | `84.1296` | `-0.1445` | `-44.7401` | none |
+
+Closest same-seed miss:
+
+- `RM2_mean_for_return seed44`
+  - Sharpe delta vs matched baseline seed `44`: `-0.0131`
+  - Return delta vs matched baseline seed `44`: `-7.0602`
+
+Sharpe-only spike:
+
+- `RM2_mean_for_return seed43`
+  - Sharpe delta vs matched baseline seed `43`: `+0.1277`
+  - Return delta vs matched baseline seed `43`: `-51.9363`
+
+### O4. Interpretation
+
+- Reopening the missing `rolling_mean` family did not produce a Step 12-style replacement winner.
+- No candidate passed the same-seed two-metric short gate.
+- Therefore Step 14 stopped at the short stage and produced no new full-run follow-up.
+- The strongest validated replacement-style specialist note remains:
+  - `R5_volprof_for_return seed42`
+
+### O5. Source files
+
+- `docs/signature/plan/step14_replacement_reopen_short_results.md`
+- `docs/signature/plan/step14_replacement_reopen_single_seed_full_results.md`
+- `runs/step14_f1_replacement_reopen_short/`
+
+## P. 2026-04 Encoder Bottleneck Validation with `MLPDuelingDQN`
+
+This section records the Step 15 follow-up that tested whether the strongest `f1` specialist signature branches
+benefit from replacing the flat-vector `ConvDuelingDQN` encoder with `MLPDuelingDQN`.
+
+### P1. Candidate family
+
+All Step 15 configs keep the same `f1` protocol and only change the network type to `MLPDuelingDQN`.
+
+| Candidate | Path embedding |
+|---|---|
+| `MLP_baseline` | `log_price + log_return + rolling_vol(window=5)` |
+| `MLP_D3_return_vol5` | `log_return + rolling_vol(window=5)` |
+| `MLP_R5_volprof_for_return` | `log_price + rolling_vol(window=5) + normalized_cumulative_volume` |
+
+### P2. Short-screen protocol
+
+- Runner:
+  - `scripts/walk_forward_protocol.py`
+- Fold protocol:
+  - `configs/folds_signature_step9_f1.json`
+- Fold:
+  - `f1` only
+- Seeds:
+  - `42,43,44`
+- Budget:
+  - `train.num_episodes = 80`
+  - `train.max_total_steps = 30000`
+- Promotion rule:
+  - candidate-seed must beat the matched `MLP_baseline` seed on both:
+    - `f1` OOS Sharpe
+    - `f1` OOS Return %
+
+### P3. Short-screen result
+
+| Candidate | `f1` OOS Sharpe mean | `f1` OOS Return % mean | Delta Sharpe vs `MLP_baseline` | Delta Return % vs `MLP_baseline` | Promoted seeds |
+|---|---:|---:|---:|---:|---|
+| `MLP_baseline` | `0.8279` | `68.2118` | `0.0000` | `0.0000` | control |
+| `MLP_D3_return_vol5` | `0.8937` | `92.2096` | `+0.0658` | `+23.9978` | `42`, `43` |
+| `MLP_R5_volprof_for_return` | `0.7760` | `96.5115` | `-0.0519` | `+28.2996` | `43` |
+
+### P4. Full `f1` comparison
+
+Official repository reference:
+
+- baseline `f1` `5`-seed average:
+  - `Sharpe 0.8905`
+  - `Return 85.8617%`
+
+Full MLP results:
+
+| Config | `f1` OOS Sharpe mean | `f1` OOS Return % mean | Delta Sharpe vs official baseline | Delta Return % vs official baseline |
+|---|---:|---:|---:|---:|
+| `MLP_baseline` | `0.7437` | `77.2559` | `-0.1468` | `-8.6058` |
+| `MLP_D3_return_vol5` | `0.8073` | `77.9949` | `-0.0832` | `-7.8667` |
+| `MLP_R5_volprof_for_return` | `0.8059` | `100.1231` | `-0.0846` | `+14.2614` |
+
+Important internal comparison versus `MLP_baseline`:
+
+- `MLP_D3_return_vol5`:
+  - `Sharpe +0.0636`
+  - `Return +0.7391 pct`
+- `MLP_R5_volprof_for_return`:
+  - `Sharpe +0.0622`
+  - `Return +22.8672 pct`
+
+### P5. Interpretation
+
+- The encoder choice clearly interacts with signature design:
+  - both specialist branches improved versus the matched MLP control
+- But a blanket swap to `MLPDuelingDQN` is not a repository-level fix:
+  - the baseline embedding regressed materially under MLP
+  - no MLP candidate beat the official baseline on both full-run `f1` metrics
+- The strongest Step 15 branch was:
+  - `MLP_R5_volprof_for_return`
+  - it improved return strongly
+  - it remained below the official baseline on Sharpe
+
+### P6. Source files
+
+- `docs/signature/plan/step15_mlp_short_results.md`
+- `docs/signature/plan/step15_mlp_full_results.md`
+- `runs/step15_f1_mlp_short/`
+- `runs/step15_f1_mlp_full/mlp_baseline/`
+- `runs/step15_f1_mlp_full/mlp_d3_return_vol5/`
+- `runs/step15_f1_mlp_full/mlp_r5_volprof_for_return/`
+
+## Q. 2026-04 Step 11 Supplement: Full `5`-Seed Mean for `D3_return_vol5`
+
+This section backfills the missing full `5`-seed `f1` mean for the strongest Step 11 reduction branch.
+
+### Q1. Candidate
+
+| Candidate | Path embedding |
+|---|---|
+| `D3_return_vol5` | `log_return + rolling_vol(window=5)` |
+
+### Q2. Protocol
+
+- Runner:
+  - `scripts/walk_forward_protocol.py`
+- Fold protocol:
+  - `configs/folds_signature_step9_f1.json`
+- Fold:
+  - `f1` only
+- Seeds:
+  - `42,43,44,45,46`
+- Budget:
+  - config default
+  - `train.num_episodes = 260`
+  - `train.max_total_steps = 100000`
+- Eval episodes:
+  - `50`
+
+### Q3. Result
+
+Official baseline reference:
+
+- `Sharpe 0.8905`
+- `Return 85.8617%`
+
+`D3_return_vol5` full `5`-seed mean:
+
+- `Sharpe 0.8728`
+- `Return 95.3811%`
+
+Delta versus official baseline:
+
+- `Sharpe -0.0176`
+- `Return +9.5194 pct`
+
+### Q4. Interpretation
+
+- `D3_return_vol5` is stronger than a fragile same-seed-only cherry-pick.
+- The config preserves an `f1` return advantage at the full-mean level.
+- It still does not become a strict two-metric winner because the full-mean Sharpe remains slightly below the official baseline.
+
+### Q5. Source files
+
+- `docs/signature/plan/step11_reduction_full_mean_results.md`
+- `runs/step11_f1_reduction_full_mean/d3_return_vol5/summary_by_algo_fold.csv`
+- `runs/step11_f1_reduction_full_mean/d3_return_vol5/summary_by_algo.csv`
+
+## R. 2026-04 Step 16 `logsig.degree` Sweep
+
+This section records the focused `f1`-only sweep over the signature truncation level while keeping the
+baseline embedding and `ConvDuelingDQN` encoder fixed.
+
+### R1. Candidate family
+
+| Candidate | `logsig.degree` | Status |
+|---|---:|---|
+| `L1_deg1` | `1` | structurally infeasible |
+| `L2_deg2` | `2` | executed short screen |
+| `L3_deg3` | `3` | executed short screen, family control |
+| `L4_deg4` | `4` | executed short screen |
+
+### R2. Protocol
+
+- Runner:
+  - `scripts/walk_forward_protocol.py`
+- Fold protocol:
+  - `configs/folds_signature_step9_f1.json`
+- Fold:
+  - `f1` only
+- Seeds:
+  - `42,43,44`
+- Budget:
+  - `train.num_episodes = 80`
+  - `train.max_total_steps = 30000`
+- Promotion rule:
+  - candidate-seed must beat the matched `L3_deg3` seed on both:
+    - `f1` OOS Sharpe
+    - `f1` OOS Return %
+
+### R3. Structural note
+
+- `L1_deg1` reduced the observation size to `8`.
+- Under the frozen `ConvDuelingDQN` backbone, that produced a negative hidden dimension and could not be run.
+
+### R4. Short-screen result
+
+| Candidate | `f1` OOS Sharpe mean | `f1` OOS Return % mean | Delta Sharpe vs `L3_deg3` | Delta Return % vs `L3_deg3` | Promoted seeds |
+|---|---:|---:|---:|---:|---|
+| `L2_deg2` | `0.7435` | `94.9931` | `-0.1724` | `-5.5530` | none |
+| `L3_deg3` | `0.9159` | `100.5461` | `0.0000` | `0.0000` | control |
+| `L4_deg4` | `0.8841` | `96.9654` | `-0.0319` | `-3.5807` | none |
+
+Closest partial wins:
+
+- `L2_deg2 seed42`:
+  - Return improved strongly
+  - Sharpe still missed the `L3_deg3` control
+- `L4_deg4 seed43`:
+  - Sharpe improved
+  - Return regressed
+- `L4_deg4 seed44`:
+  - Return improved
+  - Sharpe regressed
+
+### R5. Interpretation
+
+- `degree=3` remains the strongest balanced short-run setting in the frozen baseline family.
+- No alternative degree produced a same-seed two-metric short-run win over `degree=3`.
+- No candidate entered the Step 16 full stage, so this step produced no new official-baseline cherry-pick winner.
+
+### R6. Source files
+
+- `docs/signature/plan/step16.md`
+- `docs/signature/plan/step16_degree_short_results.md`
+- `docs/signature/plan/step16_degree_single_seed_full_results.md`
+- `runs/step16_f1_degree_short/l2_deg2/`
+- `runs/step16_f1_degree_short/l3_deg3/`
+- `runs/step16_f1_degree_short/l4_deg4/`

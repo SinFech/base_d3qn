@@ -181,3 +181,109 @@ This log tracks implementation milestones that materially changed model behavior
 - Next:
   - Keep `D3_return_vol5 seed42` and `R5_volprof_for_return seed42` only as `f1` specialist notes.
   - Do not reinterpret these same-seed wins as repository-wide default changes without a new multi-seed scope.
+
+## 2026-04-12
+- Summary: Completed the Step 13 `D5`-based return-vol window sweep and found no reason to move away from `window=5` in that family.
+- Changes:
+  - Added the `configs/signature_step13/` family for:
+    - `DW3_return_vol3`
+    - `DW5_return_vol5`
+    - `DW10_return_vol10`
+    - `DW20_return_vol20`
+  - Reused Step 11 `D3_return_vol5` as the `DW5_return_vol5` control because the embedding and protocol were identical.
+  - Ran the new Step 13 short sweep for `DW3`, `DW10`, and `DW20`.
+  - Recorded the result in:
+    - `docs/signature/plan/step13_window_short_results.md`
+    - `docs/signature/plan/step13_window_single_seed_full_results.md`
+- Key result:
+  - No alternative window beat `DW5_return_vol5` on both same-seed `f1` metrics.
+  - `DW20 seed42` came closest but still missed on return.
+  - No Step 13 candidate was promoted into a full follow-up.
+- Next:
+  - Keep `window=5` as the strongest executable horizon inside the `log_return + rolling_vol(window=k)` family.
+  - If this line is revisited again, it should only be under a new scope note rather than another same-family resweep.
+
+## 2026-04-12
+- Summary: Reopened the missing replacement-only `rolling_mean` family and closed it without any promoted `f1` specialist winner.
+- Changes:
+  - Added the `configs/signature_step14/` family for:
+    - `RM1_mean_for_price`
+    - `RM2_mean_for_return`
+    - `RM3_mean_for_vol5`
+  - Reused the shared Step 9 short baseline control because the `f1` short protocol was identical.
+  - Ran the Step 14 replacement reopen short screen and recorded the result in:
+    - `docs/signature/plan/step14_replacement_reopen_short_results.md`
+    - `docs/signature/plan/step14_replacement_reopen_single_seed_full_results.md`
+- Key result:
+  - No `rolling_mean` replacement candidate beat the matched baseline seed on both primary `f1` metrics.
+  - `RM2_mean_for_return` was the closest mean-level challenger on Sharpe, but it still lost badly on return.
+  - No Step 14 candidate was promoted into a full follow-up.
+- Next:
+  - Keep `R5_volprof_for_return seed42` as the strongest validated replacement-style specialist note.
+  - If replacement work continues, open a new scope beyond the now-tested `high_low_range`, `normalized_cumulative_volume`, and `rolling_mean` families.
+
+## 2026-04-12
+- Summary: Validated the encoder-bottleneck hypothesis with an `MLPDuelingDQN` follow-up on the strongest `f1` specialist signature branches.
+- Changes:
+  - Added the `configs/signature_step15/` family for:
+    - `mlp_baseline`
+    - `mlp_d3_return_vol5`
+    - `mlp_r5_volprof_for_return`
+  - Ran the Step 15 `f1` short screen under the MLP encoder and recorded the result in:
+    - `docs/signature/plan/step15_mlp_short_results.md`
+  - Promoted both `MLP_D3_return_vol5` and `MLP_R5_volprof_for_return` into full `5`-seed `f1` follow-ups.
+  - Recorded the final comparison in:
+    - `docs/signature/plan/step15_mlp_full_results.md`
+- Key result:
+  - Swapping the encoder to `MLPDuelingDQN` hurt the baseline embedding on both primary `f1` metrics.
+  - Both specialist branches improved versus the matched `MLP_baseline`.
+  - `MLP_R5_volprof_for_return` was the strongest MLP branch:
+    - it beat `MLP_baseline` on both `f1` metrics
+    - it improved `f1` return over the official baseline
+    - but it still missed the official baseline on `f1` Sharpe
+- Next:
+  - Keep the official `ConvDuelingDQN` baseline as the best balanced `f1` reference.
+  - If this line continues, test a more targeted encoder change rather than another broad embedding sweep.
+
+## 2026-04-13
+- Summary: Backfilled the missing full `5`-seed `f1` mean for the Step 11 `D3_return_vol5` reduction branch.
+- Changes:
+  - Reused the existing Step 11 full runs for `seed42` and `seed43`.
+  - Ran the missing `seed44`, `seed45`, and `seed46` full `f1` evaluations for `configs/signature_step11/d3_return_vol5.yaml`.
+  - Merged all five seeds into:
+    - `runs/step11_f1_reduction_full_mean/d3_return_vol5/`
+  - Recorded the supplemental result in:
+    - `docs/signature/plan/step11_reduction_full_mean_results.md`
+- Key result:
+  - `D3_return_vol5` full `5`-seed `f1` mean:
+    - `Sharpe 0.8728`
+    - `Return 95.3811%`
+
+## 2026-04-13
+- Summary: Completed the Step 16 `logsig.degree` specialist sweep and found no reason to move away from `degree=3`.
+- Changes:
+  - Added the `configs/signature_step16/` family for:
+    - `L1_deg1`
+    - `L2_deg2`
+    - `L3_deg3`
+    - `L4_deg4`
+  - Ran the executable short `f1` degree sweep for:
+    - `L2_deg2`
+    - `L3_deg3`
+    - `L4_deg4`
+  - Recorded the result in:
+    - `docs/signature/plan/step16_degree_short_results.md`
+    - `docs/signature/plan/step16_degree_single_seed_full_results.md`
+- Key result:
+  - `degree=1` was structurally infeasible under the frozen `ConvDuelingDQN` backbone.
+  - `degree=3` remained the strongest balanced short-run setting.
+  - `degree=2` and `degree=4` showed only one-metric spikes and produced no promoted same-seed two-metric winner.
+- Next:
+  - Keep `degree=3` as the strongest known truncation level in the frozen baseline family.
+  - If the degree line is revisited, open a larger-capacity branch instead of another local resweep.
+  - versus the official baseline:
+    - `Sharpe -0.0176`
+    - `Return +9.5194 pct`
+- Next:
+  - Treat `D3_return_vol5` as a stronger `f1` specialist branch than previously established.
+  - Keep the official baseline as the balanced default because `D3_return_vol5` still misses on Sharpe.
