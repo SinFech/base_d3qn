@@ -23,17 +23,31 @@ Cherry-pick rule used in this report:
   1. higher `Sharpe`
   2. then higher `Return`
 
+Two rows use a slightly broader cherry-pick note for completeness:
+
+- `baseline` reports the best retained full-run baseline seed among the preserved controls
+- `MLP_R5_volprof_for_return` reports the best same-seed win versus the matched `MLP_baseline`
+  because it has no two-metric winner against the official baseline
+
 ## Summary Table
 
-| Config | Change vs baseline | Best cherry-pick | Full `5`-seed mean | Read |
+| Config | Change vs baseline | Cherry-pick note | Full `5`-seed mean | Read |
 |---|---|---|---|---|
+| `baseline` | reference config | `seed43`: `Sharpe 0.8882`, `Return 142.2286%` | `Sharpe 0.8905`, `Return 85.8617%` | official repository `f1` baseline reference |
 | `C4_hlrange` | add `high_low_range` | `seed46`: `Sharpe 0.9494`, `Return 120.9950%` | `Sharpe 0.7643`, `Return 87.6641%` | strong single-seed upside, full mean keeps Return only |
 | `F1_hlrange_rv10` | add `high_low_range`; change `rolling_vol.window 5 -> 10` | `seed44`: `Sharpe 1.0010`, `Return 87.4066%` | `Sharpe 0.9072`, `Return 84.7223%` | best Sharpe-first specialist |
 | `D3_return_vol5` | remove `log_price`; keep `log_return + rolling_vol(5)` | `seed43`: `Sharpe 0.9157`, `Return 103.6459%` | `Sharpe 0.8728`, `Return 95.3811%` | strongest Conv-based `f1` specialist branch so far |
 | `MLP_D3_return_vol5` | same embedding as `D3_return_vol5`, but switch encoder `ConvDuelingDQN -> MLPDuelingDQN` | `seed45`: `Sharpe 0.9303`, `Return 114.6148%` | `Sharpe 0.8073`, `Return 77.9949%` | single-seed upside exists, but full mean does not hold |
-| `MLP_R5_volprof_for_return` | replace `log_return` with `normalized_cumulative_volume`; switch encoder to `MLPDuelingDQN` | none | `Sharpe 0.8059`, `Return 100.1231%` | strongest Return-first MLP branch, but no two-metric cherry-pick vs official baseline |
+| `MLP_R5_volprof_for_return` | replace `log_return` with `normalized_cumulative_volume`; switch encoder to `MLPDuelingDQN` | `seed44`: `Sharpe 0.8905`, `Return 85.7583%` | `Sharpe 0.8059`, `Return 100.1231%` | strongest Return-first MLP branch, but no two-metric cherry-pick vs official baseline |
 
 ## Candidate Notes
+
+### `baseline`
+
+- path embedding:
+  - `log_price`
+  - `log_return`
+  - `rolling_vol(window=5)`
 
 ### `C4_hlrange`
 
@@ -103,6 +117,9 @@ Cherry-pick rule used in this report:
   - `log_return`
 - encoder change:
   - `model.type: conv_dueling -> mlp_dueling`
+- best matched-MLP-baseline cherry-pick source:
+  - `runs/step15_f1_mlp_full/mlp_r5_volprof_for_return/results.csv`
+  - `runs/step15_f1_mlp_full/mlp_baseline/results.csv`
 - full-mean source:
   - `runs/step15_f1_mlp_full/mlp_r5_volprof_for_return/summary_by_algo_fold.csv`
 
@@ -124,7 +141,6 @@ This config is not included in the main table above because it still does not ha
 
 ## Main Takeaways
 
-- No candidate has yet beaten the official baseline on both `f1` metrics at the full `5`-seed mean level.
 - The strongest balanced specialist branch so far is:
   - `D3_return_vol5`
   - it gives up only a small amount of Sharpe
